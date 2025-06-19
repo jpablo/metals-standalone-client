@@ -6,8 +6,6 @@ import io.circe.syntax._
 import java.nio.file.Path
 import java.util.logging.Logger
 import scala.concurrent.{ExecutionContext, Future}
-import scala.concurrent.duration._
-import scala.util.{Failure, Success}
 
 /**
  * Minimal Metals Language Client that implements the essential LSP protocol
@@ -15,7 +13,7 @@ import scala.util.{Failure, Success}
  */
 class MetalsClient(projectPath: Path, lspClient: LspClient)(implicit ec: ExecutionContext) {
   private val logger = Logger.getLogger(classOf[MetalsClient].getName)
-  
+
   @volatile private var initialized = false
 
   def initialize(): Future[Boolean] = {
@@ -24,39 +22,37 @@ class MetalsClient(projectPath: Path, lspClient: LspClient)(implicit ec: Executi
       Future.successful(true)
     } else {
       logger.info("Initializing Metals language server...")
-      
+
       val initParams = createInitializeParams()
       logger.info("Created initialization parameters")
-      
+
       logger.info("Sending initialize request to Metals...")
-      
-      import scala.concurrent.duration._
       val initializeFuture = lspClient.sendRequest("initialize", Some(initParams))
-      
+
       // Add a timeout to avoid hanging forever
       val timeoutFuture = scala.concurrent.Future {
-        Thread.sleep(90000) // 90 seconds - match Python timeout
-        throw new java.util.concurrent.TimeoutException("Initialize request timed out after 90 seconds")
+        Thread.sleep(120000) // 2 minutes - allow time for large responses and project setup
+        throw new java.util.concurrent.TimeoutException("Initialize request timed out after 2 minutes")
       }
-      
+
       scala.concurrent.Future.firstCompletedOf(Seq(initializeFuture, timeoutFuture)).map { result =>
         logger.info("Received initialize response from Metals")
         val hasCapabilities = result.hcursor.downField("capabilities").succeeded
-        
+
         if (hasCapabilities) {
           logger.info("Metals language server initialized successfully")
-          
+
           // Send initialized notification
           logger.info("Sending initialized notification...")
           lspClient.sendNotification("initialized", Some(Json.obj()))
-          
+
           // Small delay to let Metals process the initialized notification
           Thread.sleep(500)
-          
+
           // Send configuration to enable MCP server
           logger.info("Configuring Metals...")
           configureMetals()
-          
+
           initialized = true
           logger.info("Initialization complete!")
           true
@@ -170,7 +166,7 @@ class MetalsClient(projectPath: Path, lspClient: LspClient)(implicit ec: Executi
 
   private def configureMetals(): Unit = {
     logger.info("Configuring Metals to enable MCP server...")
-    
+
     val configParams = Json.obj(
       "settings" -> Json.obj(
         "metals" -> Json.obj(
@@ -178,7 +174,7 @@ class MetalsClient(projectPath: Path, lspClient: LspClient)(implicit ec: Executi
         )
       )
     )
-    
+
     lspClient.sendNotification("workspace/didChangeConfiguration", Some(configParams))
   }
 

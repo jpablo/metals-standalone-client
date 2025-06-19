@@ -1,19 +1,18 @@
 package scala.meta.metals.standalone
 
-import java.nio.file.{Files, Path, Paths}
-import java.util.logging.{Logger, Level, ConsoleHandler, SimpleFormatter}
+import java.nio.file.{Path, Paths}
+import java.util.logging.{ConsoleHandler, Level, Logger, SimpleFormatter}
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
 
 /**
  * Main entry point for the standalone Metals MCP client.
- * 
+ *
  * This application launches Metals language server in minimal mode and
  * enables the MCP server for AI assistant integration without requiring
  * a full IDE client like VS Code or Cursor.
  */
 object Main {
-  
+
   case class Config(
     projectPath: Path = Paths.get(".").toAbsolutePath.normalize(),
     verbose: Boolean = false
@@ -22,15 +21,15 @@ object Main {
   def main(args: Array[String]): Unit = {
     val config = parseArgs(args)
     setupLogging(config.verbose)
-    
+
     val app = new MetalsLight(config.projectPath, config.verbose)
-    
+
     // Handle shutdown gracefully
     sys.addShutdownHook {
       println("\nShutting down...")
       app.shutdown()
     }
-    
+
     val exitCode = app.run()
     sys.exit(exitCode)
   }
@@ -41,17 +40,17 @@ object Main {
       case "--help" :: _ | "-h" :: _ =>
         printUsage()
         sys.exit(0)
-      case "--verbose" :: Nil | "-v" :: Nil => 
+      case "--verbose" :: Nil | "-v" :: Nil =>
         Config(verbose = true)
-      case "--verbose" :: path :: Nil => 
+      case "--verbose" :: path :: Nil =>
         Config(Paths.get(path).toAbsolutePath.normalize(), verbose = true)
-      case "-v" :: path :: Nil => 
+      case "-v" :: path :: Nil =>
         Config(Paths.get(path).toAbsolutePath.normalize(), verbose = true)
-      case path :: "--verbose" :: Nil => 
+      case path :: "--verbose" :: Nil =>
         Config(Paths.get(path).toAbsolutePath.normalize(), verbose = true)
-      case path :: "-v" :: Nil => 
+      case path :: "-v" :: Nil =>
         Config(Paths.get(path).toAbsolutePath.normalize(), verbose = true)
-      case path :: Nil => 
+      case path :: Nil =>
         Config(Paths.get(path).toAbsolutePath.normalize())
       case invalid =>
         println(s"Error: Invalid arguments: ${invalid.mkString(" ")}")
@@ -86,10 +85,10 @@ object Main {
   private def setupLogging(verbose: Boolean): Unit = {
     val rootLogger = Logger.getLogger("")
     rootLogger.setLevel(if (verbose) Level.INFO else Level.WARNING)
-    
+
     // Remove default handlers and add custom one
     rootLogger.getHandlers.foreach(rootLogger.removeHandler)
-    
+
     val handler = new ConsoleHandler() {
       setOutputStream(System.out) // Send to stdout instead of stderr
     }
@@ -103,7 +102,7 @@ object Main {
         }
       }
     })
-    
+
     rootLogger.addHandler(handler)
   }
 }
@@ -113,27 +112,26 @@ object Main {
  */
 class MetalsLight(projectPath: Path, verbose: Boolean) {
   private val logger = Logger.getLogger(classOf[MetalsLight].getName)
-  
+
   implicit private val ec: ExecutionContext = ExecutionContext.global
-  
+
   private var launcher: Option[MetalsLauncher] = None
   private var lspClient: Option[LspClient] = None
   private var metalsClient: Option[MetalsClient] = None
-  private var mcpMonitor: Option[McpMonitor] = None
 
   def run(): Int = {
     try {
       println("🚀 Starting Metals standalone MCP client...")
-      
+
       val metalsLauncher = new MetalsLauncher(projectPath)
       launcher = Some(metalsLauncher)
-      
+
       // Validate project
       if (!metalsLauncher.validateProject()) {
         println("❌ Project validation failed")
         return 1
       }
-      
+
       // Launch Metals process
       println("📦 Launching Metals language server...")
       val process = metalsLauncher.launchMetals() match {
@@ -142,11 +140,11 @@ class MetalsLight(projectPath: Path, verbose: Boolean) {
           println("❌ Failed to launch Metals")
           return 1
       }
-      
+
       // Create LSP client
       val client = new LspClient(process)
       lspClient = Some(client)
-      
+
       // Block and wait for the future to complete
       import scala.concurrent.duration._
       import scala.util.Try
@@ -154,26 +152,25 @@ class MetalsLight(projectPath: Path, verbose: Boolean) {
         scala.concurrent.Await.result(
           client.start().flatMap { _ =>
             println("🔗 Connected to Metals LSP server")
-            
+
             // Create and initialize Metals client
             val metals = new MetalsClient(projectPath, client)
             metalsClient = Some(metals)
-            
+
             metals.initialize().flatMap { success =>
               if (success) {
                 println("✅ Metals language server initialized")
-                
+
                 // Create MCP monitor
                 val monitor = new McpMonitor(projectPath)
-                mcpMonitor = Some(monitor)
-                
+
                 // Wait for MCP server
                 println("⏳ Waiting for MCP server to start...")
                 monitor.waitForMcpServer().flatMap {
                   case Some(mcpUrl) =>
                     // Print connection info
                     monitor.printConnectionInfo(mcpUrl)
-                    
+
                     // Monitor health until interrupted
                     monitor.monitorMcpHealth(mcpUrl)
                   case None =>
@@ -200,7 +197,7 @@ class MetalsLight(projectPath: Path, verbose: Boolean) {
           }
           1
       }.get
-      
+
     } catch {
       case e: InterruptedException =>
         println("\n🛑 Interrupted by user")
@@ -216,7 +213,7 @@ class MetalsLight(projectPath: Path, verbose: Boolean) {
 
   def shutdown(): Unit = {
     println("🔄 Shutting down components...")
-    
+
     // Shutdown in reverse order
     metalsClient.foreach { client =>
       try {
@@ -227,7 +224,7 @@ class MetalsLight(projectPath: Path, verbose: Boolean) {
           logger.warning(s"Error shutting down Metals client: ${e.getMessage}")
       }
     }
-    
+
     lspClient.foreach { client =>
       try {
         client.shutdown()
@@ -237,7 +234,7 @@ class MetalsLight(projectPath: Path, verbose: Boolean) {
           logger.warning(s"Error shutting down LSP client: ${e.getMessage}")
       }
     }
-    
+
     launcher.foreach { launcher =>
       try {
         launcher.shutdown()
@@ -247,7 +244,7 @@ class MetalsLight(projectPath: Path, verbose: Boolean) {
           logger.warning(s"Error shutting down Metals launcher: ${e.getMessage}")
       }
     }
-    
+
     println("👋 Goodbye!")
   }
 }

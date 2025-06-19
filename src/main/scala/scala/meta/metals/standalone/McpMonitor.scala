@@ -4,11 +4,10 @@ import io.circe._
 import io.circe.parser._
 import sttp.client3._
 
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Path}
 import java.util.logging.Logger
-import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future}
 
 /**
  * Monitor and manage MCP server configuration.
@@ -16,13 +15,13 @@ import scala.concurrent.duration._
  */
 class McpMonitor(projectPath: Path)(implicit ec: ExecutionContext) {
   private val logger = Logger.getLogger(classOf[McpMonitor].getName)
-  
+
   private val configPaths = Seq(
     projectPath.resolve(".metals/mcp.json"),
     projectPath.resolve(".cursor/mcp.json"),
     projectPath.resolve(".vscode/mcp.json")
   )
-  
+
   private val httpClient = SimpleHttpClient()
 
   def findMcpConfig(): Option[Path] = {
@@ -53,14 +52,14 @@ class McpMonitor(projectPath: Path)(implicit ec: ExecutionContext) {
   def extractMcpUrl(config: Json): Option[String] = {
     try {
       val cursor = config.hcursor
-      
+
       // Try different configuration structures
       val mcpServers = cursor.downField("mcpServers").as[Json]
         .orElse(cursor.downField("servers").as[Json])
         .getOrElse(Json.obj())
-      
+
       val serversCursor = mcpServers.hcursor
-      
+
       // Look for metals-metals server
       val metalsConfig = serversCursor.downField("metals-metals").as[Json]
         .orElse {
@@ -70,11 +69,11 @@ class McpMonitor(projectPath: Path)(implicit ec: ExecutionContext) {
               .flatMap(key => serversCursor.downField(key).as[Json].toOption)
           }.toRight("No metals server found")
         }
-      
-      metalsConfig match {
-        case Right(config) =>
-          val configCursor = config.hcursor
-          
+
+      metalsConfig match {       
+        case Right(metalsConf) =>
+          val configCursor = metalsConf.hcursor
+
           // Extract URL from transport configuration
           configCursor.downField("transport").downField("url").as[String]
             .orElse {
@@ -85,7 +84,7 @@ class McpMonitor(projectPath: Path)(implicit ec: ExecutionContext) {
               logger.info(s"Found MCP URL: $url")
               url
             }
-            
+
         case Left(_) =>
           logger.info("No metals server configuration found")
           None
@@ -102,14 +101,14 @@ class McpMonitor(projectPath: Path)(implicit ec: ExecutionContext) {
       try {
         // Try to connect to the base URL (without /sse endpoint)
         val baseUrl = url.stripSuffix("/sse").stripSuffix("/")
-        
+
         val request = basicRequest
           .get(uri"$baseUrl")
           .header("User-Agent", "metals-standalone-client/0.1.0")
           .readTimeout(timeoutSeconds.seconds)
-        
+
         val response = httpClient.send(request)
-        
+
         // Some HTTP errors are acceptable (like 404) - server is responding
         response.code.code < 500
       } catch {
@@ -123,10 +122,10 @@ class McpMonitor(projectPath: Path)(implicit ec: ExecutionContext) {
   def waitForMcpServer(timeoutSeconds: Int = 60): Future[Option[String]] = {
     val startTime = System.currentTimeMillis()
     val endTime = startTime + (timeoutSeconds * 1000)
-    
+
     def checkForServer(): Future[Option[String]] = {
       val currentTime = System.currentTimeMillis()
-      
+
       if (currentTime >= endTime) {
         logger.warning(s"MCP server did not start within $timeoutSeconds seconds")
         Future.successful(None)
@@ -136,7 +135,7 @@ class McpMonitor(projectPath: Path)(implicit ec: ExecutionContext) {
         if (elapsed > 0 && elapsed % 10 == 0) {
           logger.info(s"Still waiting for MCP server... (${elapsed}s elapsed)")
         }
-        
+
         findMcpConfig() match {
           case Some(configPath) =>
             parseMcpConfig(configPath) match {
@@ -175,7 +174,7 @@ class McpMonitor(projectPath: Path)(implicit ec: ExecutionContext) {
         }
       }
     }
-    
+
     logger.info("Waiting for MCP server to start...")
     checkForServer()
   }
@@ -218,7 +217,7 @@ class McpMonitor(projectPath: Path)(implicit ec: ExecutionContext) {
           false
       }
     }
-    
+
     healthCheck()
   }
 }

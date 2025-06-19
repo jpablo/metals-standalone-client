@@ -12,6 +12,7 @@ import scala.concurrent.{ExecutionContext, Future}
  * a full IDE client like VS Code or Cursor.
  */
 object Main {
+  private val logger = Logger.getLogger(Main.getClass.getName)
 
   case class Config(
     projectPath: Path = Paths.get(".").toAbsolutePath.normalize(),
@@ -25,7 +26,7 @@ object Main {
     val app = new MetalsLight(config.projectPath, config.verbose)
 
     sys.addShutdownHook {
-      println("\nShutting down...")
+      logger.info("\nShutting down...")
       app.shutdown()
     }
 
@@ -52,14 +53,14 @@ object Main {
       case path :: Nil =>
         Config(Paths.get(path).toAbsolutePath.normalize())
       case invalid =>
-        println(s"Error: Invalid arguments: ${invalid.mkString(" ")}")
+        logger.severe(s"Error: Invalid arguments: ${invalid.mkString(" ")}")
         printUsage()
         sys.exit(1)
     }
   }
 
   private def printUsage(): Unit = {
-    println("""
+    logger.info("""
       |Metals Standalone MCP Client
       |
       |Usage: metals-light [OPTIONS] [PROJECT_PATH]
@@ -119,21 +120,21 @@ class MetalsLight(projectPath: Path, verbose: Boolean) {
 
   def run(): Int = {
     try {
-      println("🚀 Starting Metals standalone MCP client...")
+      logger.info("🚀 Starting Metals standalone MCP client...")
 
       val metalsLauncher = new MetalsLauncher(projectPath)
       launcher = Some(metalsLauncher)
 
       if (!metalsLauncher.validateProject()) {
-        println("❌ Project validation failed")
+        logger.severe("❌ Project validation failed")
         return 1
       }
 
-      println("📦 Launching Metals language server...")
+      logger.info("📦 Launching Metals language server...")
       val process = metalsLauncher.launchMetals() match {
         case Some(p) => p
         case None =>
-          println("❌ Failed to launch Metals")
+          logger.severe("❌ Failed to launch Metals")
           return 1
       }
 
@@ -145,28 +146,28 @@ class MetalsLight(projectPath: Path, verbose: Boolean) {
       Try {
         scala.concurrent.Await.result(
           client.start().flatMap { _ =>
-            println("🔗 Connected to Metals LSP server")
+            logger.info("🔗 Connected to Metals LSP server")
 
             val metals = new MetalsClient(projectPath, client)
             metalsClient = Some(metals)
 
             metals.initialize().flatMap { success =>
               if (success) {
-                println("✅ Metals language server initialized")
+                logger.info("✅ Metals language server initialized")
 
                 val monitor = new McpMonitor(projectPath)
 
-                println("⏳ Waiting for MCP server to start...")
+                logger.info("⏳ Waiting for MCP server to start...")
                 monitor.waitForMcpServer().flatMap {
                   case Some(mcpUrl) =>
                     monitor.printConnectionInfo(mcpUrl)
                     monitor.monitorMcpHealth(mcpUrl)
                   case None =>
-                    println("❌ MCP server failed to start")
+                    logger.severe("❌ MCP server failed to start")
                     Future.successful(false)
                 }
               } else {
-                println("❌ Failed to initialize Metals")
+                logger.severe("❌ Failed to initialize Metals")
                 Future.successful(false)
               }
             }
@@ -176,10 +177,10 @@ class MetalsLight(projectPath: Path, verbose: Boolean) {
         0
       }.recover {
         case e: InterruptedException =>
-          println("\n🛑 Interrupted by user")
+          logger.info("\n🛑 Interrupted by user")
           0
         case e: Exception =>
-          println(s"❌ Application failed: ${e.getMessage}")
+          logger.severe(s"❌ Application failed: ${e.getMessage}")
           if (verbose) {
             e.printStackTrace()
           }
@@ -188,10 +189,10 @@ class MetalsLight(projectPath: Path, verbose: Boolean) {
 
     } catch {
       case e: InterruptedException =>
-        println("\n🛑 Interrupted by user")
+        logger.info("\n🛑 Interrupted by user")
         0
       case e: Exception =>
-        println(s"❌ Unexpected error: ${e.getMessage}")
+        logger.severe(s"❌ Unexpected error: ${e.getMessage}")
         if (verbose) {
           e.printStackTrace()
         }
@@ -200,13 +201,13 @@ class MetalsLight(projectPath: Path, verbose: Boolean) {
   }
 
   def shutdown(): Unit = {
-    println("🔄 Shutting down components...")
+    logger.info("🔄 Shutting down components...")
 
     // Shutdown in reverse order
     metalsClient.foreach { client =>
       try {
         client.shutdown()
-        println("✅ Metals client shutdown")
+        logger.info("✅ Metals client shutdown")
       } catch {
         case e: Exception =>
           logger.warning(s"Error shutting down Metals client: ${e.getMessage}")
@@ -216,7 +217,7 @@ class MetalsLight(projectPath: Path, verbose: Boolean) {
     lspClient.foreach { client =>
       try {
         client.shutdown()
-        println("✅ LSP client shutdown")
+        logger.info("✅ LSP client shutdown")
       } catch {
         case e: Exception =>
           logger.warning(s"Error shutting down LSP client: ${e.getMessage}")
@@ -226,13 +227,13 @@ class MetalsLight(projectPath: Path, verbose: Boolean) {
     launcher.foreach { launcher =>
       try {
         launcher.shutdown()
-        println("✅ Metals process shutdown")
+        logger.info("✅ Metals process shutdown")
       } catch {
         case e: Exception =>
           logger.warning(s"Error shutting down Metals launcher: ${e.getMessage}")
       }
     }
 
-    println("👋 Goodbye!")
+    logger.info("👋 Goodbye!")
   }
 }

@@ -42,7 +42,6 @@ lazy val root = project
 
     // Compiler options
     scalacOptions ++= List(
-      "-target:jvm-1.8",
       "-deprecation",
       "-unchecked",
       "-feature",
@@ -68,12 +67,7 @@ lazy val root = project
     assembly / assemblyMergeStrategy := {
       case PathList("META-INF", xs @ _*) => MergeStrategy.discard
       case x => MergeStrategy.first
-    },
+    }
 
-    // Publishing configuration
-    licenses := Seq(
-      "Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")
-    ),
-    homepage := Some(url("https://github.com/scalameta/metals")),
   )
   .enablePlugins(AssemblyPlugin)

@@ -70,7 +70,7 @@ class McpMonitor(projectPath: Path)(implicit ec: ExecutionContext) {
           }.toRight("No metals server found")
         }
 
-      metalsConfig match {       
+      metalsConfig match {
         case Right(metalsConf) =>
           val configCursor = metalsConf.hcursor
 

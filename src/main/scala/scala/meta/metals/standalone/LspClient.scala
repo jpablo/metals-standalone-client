@@ -18,14 +18,14 @@ import scala.util.{Failure, Success, Try}
  */
 class LspClient(process: Process)(implicit ec: ExecutionContext) {
   private val logger = Logger.getLogger(classOf[LspClient].getName)
-  
+
   private val requestId = new AtomicInteger(0)
   private val pendingRequests = new ConcurrentHashMap[Int, Promise[Json]]()
   private val messageHandlers = new ConcurrentHashMap[String, Json => Option[Json]]()
-  
+
   private val stdin = new PrintWriter(new OutputStreamWriter(process.getOutputStream, StandardCharsets.UTF_8), true)
   private val stdout = process.getInputStream
-  
+
   @volatile private var shutdownRequested = false
   private val readerExecutor: ExecutorService = Executors.newSingleThreadExecutor(r => {
     val thread = new Thread(r, "lsp-reader")
@@ -34,7 +34,7 @@ class LspClient(process: Process)(implicit ec: ExecutionContext) {
   })
 
   setupMessageHandlers()
-  
+
   private def setupMessageHandlers(): Unit = {
     // Handle notifications and requests from server
     registerHandler("window/showMessage", handleShowMessage)
@@ -58,7 +58,7 @@ class LspClient(process: Process)(implicit ec: ExecutionContext) {
   def start(): Future[Unit] = {
     val promise = Promise[Unit]()
     logger.info("Starting LSP client message reader...")
-    
+
     readerExecutor.submit(new Runnable {
       def run(): Unit = {
         logger.info("LSP message reader thread started")
@@ -66,37 +66,37 @@ class LspClient(process: Process)(implicit ec: ExecutionContext) {
         readMessages()
       }
     })
-    
+
     promise.future
   }
 
   private def readMessages(): Unit = {
     var buffer = ""
     logger.info("Starting to read messages from Metals process...")
-    
+
     try {
       var shouldContinue = true
       while (!shutdownRequested && process.isAlive && shouldContinue) {
         // Read available data in chunks
         val bytes = new Array[Byte](4096)
         val bytesRead = stdout.read(bytes)
-        
+
         if (bytesRead == -1) {
           logger.warning("End of stream from Metals process")
           shouldContinue = false
         } else if (bytesRead == 0) {
-          Thread.sleep(10) // Small delay to avoid busy waiting
+          Thread.sleep(10)
         } else {
           val data = new String(bytes, 0, bytesRead, StandardCharsets.UTF_8)
           buffer += data
-          
+
           // Process complete messages
           var processMessages = true
           while (buffer.contains("\r\n\r\n") && processMessages) {
             val headerEnd = buffer.indexOf("\r\n\r\n")
             val header = buffer.substring(0, headerEnd)
             buffer = buffer.substring(headerEnd + 4)
-            
+
             // Parse content length from header
             var contentLength = 0
             for (line <- header.split("\r\n")) {
@@ -104,7 +104,7 @@ class LspClient(process: Process)(implicit ec: ExecutionContext) {
                 contentLength = line.split(":")(1).trim.toInt
               }
             }
-            
+
             if (contentLength > 0) {
               // Wait for complete message body
               var readingBody = true
@@ -112,7 +112,7 @@ class LspClient(process: Process)(implicit ec: ExecutionContext) {
                 val needed = contentLength - buffer.length
                 val moreBytes = new Array[Byte](math.min(needed, 4096))
                 val moreBytesRead = stdout.read(moreBytes)
-                
+
                 if (moreBytesRead == -1) {
                   logger.warning("Unexpected end of stream while reading message body")
                   readingBody = false
@@ -125,14 +125,12 @@ class LspClient(process: Process)(implicit ec: ExecutionContext) {
                   buffer += moreData
                 }
               }
-              
+
               if (buffer.length >= contentLength) {
                 val messageJson = buffer.substring(0, contentLength)
                 buffer = buffer.substring(contentLength)
-                
+
                 logger.info(s"Raw LSP message received (length: $contentLength): $messageJson")
-                
-                // Process the message
                 parseAndHandleMessage(messageJson)
               }
             }
@@ -160,43 +158,42 @@ class LspClient(process: Process)(implicit ec: ExecutionContext) {
 
   private def handleMessage(message: Json): Unit = {
     val cursor = message.hcursor
-    
-    // Log all message types for debugging
+
     logger.info(s"Processing message: ${message.noSpaces.take(100)}...")
-    
+
     // Check if this is a response to our request
     cursor.downField("id").as[Int] match {
       case Right(id) if pendingRequests.containsKey(id) =>
         logger.info(s"Received LSP response for request id: $id")
         val promise = pendingRequests.remove(id)
         cursor.downField("result").as[Json] match {
-          case Right(result) => 
+          case Right(result) =>
             logger.info(s"LSP request $id completed successfully")
             logger.info(s"Response result: ${result.noSpaces.take(200)}...")
             promise.success(result)
           case Left(_) =>
             cursor.downField("error").as[Json] match {
-              case Right(error) => 
+              case Right(error) =>
                 logger.severe(s"LSP request $id failed with error: $error")
                 promise.failure(new RuntimeException(s"LSP error: $error"))
-              case Left(_) => 
+              case Left(_) =>
                 logger.severe(s"LSP request $id failed - invalid response format")
                 logger.severe(s"Raw response: ${message.noSpaces}")
                 promise.failure(new RuntimeException("Invalid LSP response"))
             }
         }
-        
+
       case _ =>
         // This is a notification or request from server
         cursor.downField("method").as[String] match {
           case Right(method) =>
             val params = cursor.downField("params").as[Json].getOrElse(Json.Null)
-            
+
             Option(messageHandlers.get(method)) match {
               case Some(handler) =>
                 try {
                   val result = handler(params)
-                  
+
                   // If this is a request (has id), send response
                   cursor.downField("id").as[Int] match {
                     case Right(msgId) =>
@@ -214,20 +211,20 @@ class LspClient(process: Process)(implicit ec: ExecutionContext) {
                       case Left(_) => // Notification, can't send error response
                     }
                 }
-                
+
               case None =>
                 logger.warning(s"Unhandled LSP method: $method")
                 logger.info(s"Unhandled method params: $params")
                 // Check if this is a request (has id) that needs a response
                 cursor.downField("id").as[Int] match {
-                  case Right(msgId) => 
+                  case Right(msgId) =>
                     logger.warning(s"Unhandled method $method is a request (id: $msgId) - sending empty response")
                     sendResponse(msgId, Json.Null)
-                  case Left(_) => 
+                  case Left(_) =>
                     logger.info(s"Unhandled method $method is a notification - no response needed")
                 }
             }
-            
+
           case Left(_) =>
             logger.warning(s"Message without method: $message")
         }
@@ -238,7 +235,7 @@ class LspClient(process: Process)(implicit ec: ExecutionContext) {
     val messageStr = message.noSpaces
     val messageBytes = messageStr.getBytes(StandardCharsets.UTF_8)
     val header = s"Content-Length: ${messageBytes.length}\r\n\r\n"
-    
+
     try {
       stdin.print(header)
       stdin.print(messageStr)
@@ -273,10 +270,10 @@ class LspClient(process: Process)(implicit ec: ExecutionContext) {
   def sendRequest(method: String, params: Option[Json] = None): Future[Json] = {
     val id = requestId.incrementAndGet()
     val promise = Promise[Json]()
-    
+
     logger.info(s"Sending LSP request: $method (id: $id)")
     pendingRequests.put(id, promise)
-    
+
     val request = Json.obj(
       "jsonrpc" -> "2.0".asJson,
       "id" -> id.asJson,
@@ -285,7 +282,7 @@ class LspClient(process: Process)(implicit ec: ExecutionContext) {
       case Some(p) => Json.obj("params" -> p)
       case None => Json.obj()
     })
-    
+
     logger.info(s"LSP request JSON: ${request.noSpaces}")
     sendMessage(request)
     logger.info(s"LSP request sent: $method (id: $id)")
@@ -300,7 +297,7 @@ class LspClient(process: Process)(implicit ec: ExecutionContext) {
       case Some(p) => Json.obj("params" -> p)
       case None => Json.obj()
     })
-    
+
     sendMessage(notification)
   }
 
@@ -310,15 +307,15 @@ class LspClient(process: Process)(implicit ec: ExecutionContext) {
     val cursor = params.hcursor
     val messageType = cursor.downField("type").as[Int].getOrElse(1)
     val message = cursor.downField("message").as[String].getOrElse("")
-    
+
     val typeName = messageType match {
       case 1 => "ERROR"
-      case 2 => "WARN" 
+      case 2 => "WARN"
       case 3 => "INFO"
       case 4 => "LOG"
       case _ => "UNKNOWN"
     }
-    
+
     logger.info(s"[$typeName] $message")
     None
   }
@@ -328,17 +325,17 @@ class LspClient(process: Process)(implicit ec: ExecutionContext) {
     val messageType = cursor.downField("type").as[Int].getOrElse(1)
     val message = cursor.downField("message").as[String].getOrElse("")
     val actions = cursor.downField("actions").as[List[Json]].getOrElse(Nil)
-    
+
     val typeName = messageType match {
       case 1 => "ERROR"
       case 2 => "WARN"
-      case 3 => "INFO" 
+      case 3 => "INFO"
       case 4 => "LOG"
       case _ => "UNKNOWN"
     }
-    
+
     logger.info(s"[$typeName] $message")
-    
+
     // Auto-select the first action for headless operation
     if (actions.nonEmpty) {
       val selectedAction = actions.head
@@ -354,7 +351,7 @@ class LspClient(process: Process)(implicit ec: ExecutionContext) {
     val cursor = params.hcursor
     val messageType = cursor.downField("type").as[Int].getOrElse(1)
     val message = cursor.downField("message").as[String].getOrElse("")
-    
+
     if (messageType <= 2) { // Error or Warning
       logger.warning(s"Metals: $message")
     } else {
@@ -367,7 +364,7 @@ class LspClient(process: Process)(implicit ec: ExecutionContext) {
     val cursor = params.hcursor
     val uri = cursor.downField("uri").as[String].getOrElse("")
     val diagnostics = cursor.downField("diagnostics").as[List[Json]].getOrElse(Nil)
-    
+
     if (diagnostics.nonEmpty) {
       logger.info(s"Diagnostics for $uri: ${diagnostics.length} issues")
     }
@@ -389,22 +386,19 @@ class LspClient(process: Process)(implicit ec: ExecutionContext) {
 
   private def handleExecuteClientCommand(params: Json): Option[Json] = {
     val command = params.hcursor.downField("command").as[String].getOrElse("")
-    logger.info(s"Client command: $command") 
+    logger.info(s"Client command: $command")
     None
   }
 
   private def handleRegisterCapability(params: Json): Option[Json] = {
-    // Just return success
     Some(Json.Null)
   }
 
   private def handleUnregisterCapability(params: Json): Option[Json] = {
-    // Just return success
     Some(Json.Null)
   }
 
   private def handleProgressCreate(params: Json): Option[Json] = {
-    // Just return success
     Some(Json.Null)
   }
 
@@ -416,7 +410,7 @@ class LspClient(process: Process)(implicit ec: ExecutionContext) {
   private def handleConfiguration(params: Json): Option[Json] = {
     val cursor = params.hcursor
     val items = cursor.downField("items").as[List[Json]].getOrElse(Nil)
-    
+
     // Return configuration for metals
     val configs = items.map { item =>
       val section = item.hcursor.downField("section").as[String].getOrElse("")
@@ -434,27 +428,24 @@ class LspClient(process: Process)(implicit ec: ExecutionContext) {
         Json.obj()
       }
     }
-    
+
     Some(configs.asJson)
   }
 
   def shutdown(): Future[Json] = {
     shutdownRequested = true
-    
-    // Send shutdown request
     sendRequest("shutdown").andThen {
       case Success(_) =>
-        // Send exit notification
         sendNotification("exit")
-        
+
         // Close streams and terminate process
         Try {
           stdin.close()
           stdout.close()
         }
-        
+
         readerExecutor.shutdown()
-        
+
         if (process.isAlive) {
           process.destroy()
           // Give it a moment for graceful shutdown
@@ -463,7 +454,7 @@ class LspClient(process: Process)(implicit ec: ExecutionContext) {
             process.destroyForcibly()
           }
         }
-        
+
       case Failure(e) =>
         logger.warning(s"Shutdown request failed: ${e.getMessage}")
         // Force shutdown anyway
@@ -471,7 +462,7 @@ class LspClient(process: Process)(implicit ec: ExecutionContext) {
           stdin.close()
           stdout.close()
         }
-        
+
         readerExecutor.shutdown()
         process.destroyForcibly()
     }

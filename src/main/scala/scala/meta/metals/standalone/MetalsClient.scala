@@ -42,14 +42,11 @@ class MetalsClient(projectPath: Path, lspClient: LspClient)(implicit ec: Executi
         if (hasCapabilities) {
           logger.info("Metals language server initialized successfully")
 
-          // Send initialized notification
           logger.info("Sending initialized notification...")
           lspClient.sendNotification("initialized", Some(Json.obj()))
 
           // Small delay to let Metals process the initialized notification
           Thread.sleep(500)
-
-          // Send configuration to enable MCP server
           logger.info("Configuring Metals...")
           configureMetals()
 

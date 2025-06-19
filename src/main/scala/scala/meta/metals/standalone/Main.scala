@@ -24,7 +24,6 @@ object Main {
 
     val app = new MetalsLight(config.projectPath, config.verbose)
 
-    // Handle shutdown gracefully
     sys.addShutdownHook {
       println("\nShutting down...")
       app.shutdown()
@@ -86,11 +85,10 @@ object Main {
     val rootLogger = Logger.getLogger("")
     rootLogger.setLevel(if (verbose) Level.INFO else Level.WARNING)
 
-    // Remove default handlers and add custom one
     rootLogger.getHandlers.foreach(rootLogger.removeHandler)
 
     val handler = new ConsoleHandler() {
-      setOutputStream(System.out) // Send to stdout instead of stderr
+      setOutputStream(System.out)
     }
     handler.setLevel(if (verbose) Level.INFO else Level.WARNING)
     handler.setFormatter(new SimpleFormatter() {
@@ -126,13 +124,11 @@ class MetalsLight(projectPath: Path, verbose: Boolean) {
       val metalsLauncher = new MetalsLauncher(projectPath)
       launcher = Some(metalsLauncher)
 
-      // Validate project
       if (!metalsLauncher.validateProject()) {
         println("❌ Project validation failed")
         return 1
       }
 
-      // Launch Metals process
       println("📦 Launching Metals language server...")
       val process = metalsLauncher.launchMetals() match {
         case Some(p) => p
@@ -141,11 +137,9 @@ class MetalsLight(projectPath: Path, verbose: Boolean) {
           return 1
       }
 
-      // Create LSP client
       val client = new LspClient(process)
       lspClient = Some(client)
 
-      // Block and wait for the future to complete
       import scala.concurrent.duration._
       import scala.util.Try
       Try {
@@ -153,7 +147,6 @@ class MetalsLight(projectPath: Path, verbose: Boolean) {
           client.start().flatMap { _ =>
             println("🔗 Connected to Metals LSP server")
 
-            // Create and initialize Metals client
             val metals = new MetalsClient(projectPath, client)
             metalsClient = Some(metals)
 
@@ -161,17 +154,12 @@ class MetalsLight(projectPath: Path, verbose: Boolean) {
               if (success) {
                 println("✅ Metals language server initialized")
 
-                // Create MCP monitor
                 val monitor = new McpMonitor(projectPath)
 
-                // Wait for MCP server
                 println("⏳ Waiting for MCP server to start...")
                 monitor.waitForMcpServer().flatMap {
                   case Some(mcpUrl) =>
-                    // Print connection info
                     monitor.printConnectionInfo(mcpUrl)
-
-                    // Monitor health until interrupted
                     monitor.monitorMcpHealth(mcpUrl)
                   case None =>
                     println("❌ MCP server failed to start")

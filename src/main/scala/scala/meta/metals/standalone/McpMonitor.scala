@@ -13,7 +13,7 @@ import scala.concurrent.{ExecutionContext, Future}
  * Monitor and manage MCP server configuration.
  * Watches for configuration files and tests server health.
  */
-class McpMonitor(projectPath: Path)(implicit ec: ExecutionContext) {
+class McpMonitor(projectPath: Path)(using ExecutionContext) {
   private val logger = Logger.getLogger(classOf[McpMonitor].getName)
 
   private val configPaths = Seq(

@@ -176,7 +176,7 @@ class MetalsLight(projectPath: Path, verbose: Boolean) {
         )
         0
       }.recover {
-        case e: InterruptedException =>
+        case _: InterruptedException =>
           logger.info("\n🛑 Interrupted by user")
           0
         case e: Exception =>
@@ -188,7 +188,7 @@ class MetalsLight(projectPath: Path, verbose: Boolean) {
       }.get
 
     } catch {
-      case e: InterruptedException =>
+      case _: InterruptedException =>
         logger.info("\n🛑 Interrupted by user")
         0
       case e: Exception =>

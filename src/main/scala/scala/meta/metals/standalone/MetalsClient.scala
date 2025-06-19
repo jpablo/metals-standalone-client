@@ -11,7 +11,7 @@ import scala.concurrent.{ExecutionContext, Future}
  * Minimal Metals Language Client that implements the essential LSP protocol
  * to start Metals and enable the MCP server.
  */
-class MetalsClient(projectPath: Path, lspClient: LspClient)(implicit ec: ExecutionContext) {
+class MetalsClient(projectPath: Path, lspClient: LspClient)(using ExecutionContext) {
   private val logger = Logger.getLogger(classOf[MetalsClient].getName)
 
   @volatile private var initialized = false

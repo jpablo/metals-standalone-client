@@ -18,11 +18,11 @@ class MetalsLauncher(projectPath: Path) {
   private val logger = Logger.getLogger(classOf[MetalsLauncher].getName)
   private var metalsProcess: Option[java.lang.Process] = None
 
-  sealed trait MetalsInstallation
-  case class CoursierInstallation(javaExecutable: String, classpath: String) extends MetalsInstallation
-  case class SbtDevelopment(sbtExecutable: String, repoDir: Path) extends MetalsInstallation
-  case class JarInstallation(javaExecutable: String, jarPath: String) extends MetalsInstallation
-  case class DirectCommand(executable: String) extends MetalsInstallation
+  enum MetalsInstallation:
+    case CoursierInstallation(javaExecutable: String, classpath: String)
+    case SbtDevelopment(sbtExecutable: String, repoDir: Path) 
+    case JarInstallation(javaExecutable: String, jarPath: String)
+    case DirectCommand(executable: String)
 
   def findMetalsInstallation(): Option[MetalsInstallation] = {
     findCoursierInstallation()
@@ -46,7 +46,7 @@ class MetalsLauncher(projectPath: Path) {
         process.waitFor()
 
         if (result.nonEmpty) {
-          findJavaExecutable().map(java => CoursierInstallation(java, result))
+          findJavaExecutable().map(java => MetalsInstallation.CoursierInstallation(java, result))
         } else {
           logger.warning("Empty classpath returned from coursier")
           None
@@ -66,7 +66,7 @@ class MetalsLauncher(projectPath: Path) {
     if (Files.exists(buildSbt)) {
       findExecutable("sbt").map { sbt =>
         logger.info("Using SBT to run Metals from source (development version)")
-        SbtDevelopment(sbt, currentDir)
+        MetalsInstallation.SbtDevelopment(sbt, currentDir)
       }
     } else None
   }
@@ -81,13 +81,13 @@ class MetalsLauncher(projectPath: Path) {
           .filter(p => p.toString.endsWith(".jar") && p.toString.contains("metals"))
           .findFirst()
       }.toOption.flatMap(_.toScala).flatMap { jarPath =>
-        findJavaExecutable().map(java => JarInstallation(java, jarPath.toString))
+        findJavaExecutable().map(java => MetalsInstallation.JarInstallation(java, jarPath.toString))
       }
     } else None
   }
 
   private def findDirectCommand(): Option[MetalsInstallation] = {
-    findExecutable("metals").map(DirectCommand.apply)
+    findExecutable("metals").map(MetalsInstallation.DirectCommand.apply)
   }
 
   private def findExecutable(name: String): Option[String] = {
@@ -145,20 +145,20 @@ class MetalsLauncher(projectPath: Path) {
 
   private def buildCommand(installation: MetalsInstallation): Seq[String] = {
     installation match {
-      case CoursierInstallation(java, classpath) =>
+      case MetalsInstallation.CoursierInstallation(java, classpath) =>
         Seq(java, "-cp", classpath, "scala.meta.metals.Main")
-      case SbtDevelopment(sbt, _) =>
+      case MetalsInstallation.SbtDevelopment(sbt, _) =>
         Seq(sbt, "metals/run")
-      case JarInstallation(java, jarPath) =>
+      case MetalsInstallation.JarInstallation(java, jarPath) =>
         Seq(java, "-jar", jarPath)
-      case DirectCommand(executable) =>
+      case MetalsInstallation.DirectCommand(executable) =>
         Seq(executable)
     }
   }
 
   private def getWorkingDirectory(installation: MetalsInstallation): Path = {
     installation match {
-      case SbtDevelopment(_, repoDir) => repoDir
+      case MetalsInstallation.SbtDevelopment(_, repoDir) => repoDir
       case _ => projectPath
     }
   }

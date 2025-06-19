@@ -115,15 +115,15 @@ class MetalsLauncherTest extends FunSuite {
       val launcher = new MetalsLauncher(tempDir)
       
       // Test that all installation types can be instantiated
-      val coursier = launcher.CoursierInstallation("java", "classpath")
-      val sbt = launcher.SbtDevelopment("sbt", tempDir)
-      val jar = launcher.JarInstallation("java", "metals.jar")
-      val direct = launcher.DirectCommand("metals")
+      val coursier = launcher.MetalsInstallation.CoursierInstallation("java", "classpath")
+      val sbt = launcher.MetalsInstallation.SbtDevelopment("sbt", tempDir)
+      val jar = launcher.MetalsInstallation.JarInstallation("java", "metals.jar")
+      val direct = launcher.MetalsInstallation.DirectCommand("metals")
       
-      assert(coursier.isInstanceOf[launcher.MetalsInstallation])
-      assert(sbt.isInstanceOf[launcher.MetalsInstallation])
-      assert(jar.isInstanceOf[launcher.MetalsInstallation])
-      assert(direct.isInstanceOf[launcher.MetalsInstallation])
+      assert(coursier.isInstanceOf[launcher.MetalsInstallation], "coursier should be MetalsInstallation")
+      assert(sbt.isInstanceOf[launcher.MetalsInstallation], "sbt should be MetalsInstallation")
+      assert(jar.isInstanceOf[launcher.MetalsInstallation], "jar should be MetalsInstallation")
+      assert(direct.isInstanceOf[launcher.MetalsInstallation], "direct should be MetalsInstallation")
     } finally {
       Files.deleteIfExists(tempDir)
     }

@@ -16,7 +16,7 @@ import scala.util.{Failure, Success, Try}
  * Minimal LSP client for communicating with Metals language server.
  * Implements JSON-RPC 2.0 protocol over stdin/stdout.
  */
-class LspClient(process: Process)(implicit ec: ExecutionContext) {
+class LspClient(process: Process)(using ExecutionContext) {
   private val logger = Logger.getLogger(classOf[LspClient].getName)
 
   private val requestId = new AtomicInteger(0)
@@ -371,7 +371,7 @@ class LspClient(process: Process)(implicit ec: ExecutionContext) {
     None
   }
 
-  private def handleApplyEdit(params: Json): Option[Json] = {
+  private def handleApplyEdit(_params: Json): Option[Json] = {
     // Just return success - we're not actually applying edits
     Some(Json.obj("applied" -> true.asJson))
   }
@@ -390,15 +390,15 @@ class LspClient(process: Process)(implicit ec: ExecutionContext) {
     None
   }
 
-  private def handleRegisterCapability(params: Json): Option[Json] = {
+  private def handleRegisterCapability(_params: Json): Option[Json] = {
     Some(Json.Null)
   }
 
-  private def handleUnregisterCapability(params: Json): Option[Json] = {
+  private def handleUnregisterCapability(_params: Json): Option[Json] = {
     Some(Json.Null)
   }
 
-  private def handleProgressCreate(params: Json): Option[Json] = {
+  private def handleProgressCreate(_params: Json): Option[Json] = {
     Some(Json.Null)
   }
 

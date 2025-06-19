@@ -27,7 +27,7 @@ This is because:
 ThisBuild / scalaVersion := "2.13.16"
 
 // To:
-ThisBuild / scalaVersion := "3.5.2" // or latest Scala 3.x
+ThisBuild / scalaVersion := "3.7.1" // or latest Scala 3.x
 
 // Update compiler options:
 scalacOptions ++= List(
@@ -72,7 +72,6 @@ All current dependencies already support Scala 3:
 
 - ✅ **Circe** (0.14.14) - Scala 3 compatible
 - ✅ **STTP Client** (3.11.0) - Scala 3 compatible  
-- ✅ **Coursier** (2.1.24) - Scala 3 compatible
 - ✅ **MUnit** (1.1.1) - Scala 3 compatible
 - ✅ **scopt** (4.1.0) - Scala 3 compatible
 

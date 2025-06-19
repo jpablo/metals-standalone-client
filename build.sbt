@@ -1,12 +1,11 @@
 ThisBuild / organization := "org.scalameta"
 ThisBuild / version := "1.6.1-SNAPSHOT"
-ThisBuild / scalaVersion := "2.13.16"
+ThisBuild / scalaVersion := "3.7.1"
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
 lazy val V = new {
-  val scala213 = "2.13.16"
-  val coursier = "2.1.24"
+  val scala3 = "3.7.1"
   val munit = "1.1.1"
 }
 
@@ -29,9 +28,6 @@ lazy val root = project
       // CLI argument parsing
       "com.github.scopt" %% "scopt" % "4.1.0",
 
-      // Coursier for Metals discovery
-      "io.get-coursier" %% "coursier" % V.coursier,
-
       // HTTP client for health checks
       "com.softwaremill.sttp.client3" %% "core" % "3.11.0",
       "com.softwaremill.sttp.client3" %% "circe" % "3.11.0",
@@ -45,8 +41,7 @@ lazy val root = project
       "-deprecation",
       "-unchecked",
       "-feature",
-      "-Xlint",
-      "-Xfatal-warnings",
+      "-Wunused:imports",
     ),
 
     // Java compatibility

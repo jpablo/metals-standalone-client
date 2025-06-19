@@ -77,7 +77,7 @@ class LspClient(process: Process)(implicit ec: ExecutionContext) {
     try {
       var shouldContinue = true
       while (!shutdownRequested && process.isAlive && shouldContinue) {
-        // Read available data (matching Python's approach)
+        // Read available data in chunks
         val bytes = new Array[Byte](4096)
         val bytesRead = stdout.read(bytes)
         
@@ -85,12 +85,12 @@ class LspClient(process: Process)(implicit ec: ExecutionContext) {
           logger.warning("End of stream from Metals process")
           shouldContinue = false
         } else if (bytesRead == 0) {
-          Thread.sleep(10) // Small delay like Python's 0.01s
+          Thread.sleep(10) // Small delay to avoid busy waiting
         } else {
           val data = new String(bytes, 0, bytesRead, StandardCharsets.UTF_8)
           buffer += data
           
-          // Process complete messages (matching Python logic exactly)
+          // Process complete messages
           var processMessages = true
           while (buffer.contains("\r\n\r\n") && processMessages) {
             val headerEnd = buffer.indexOf("\r\n\r\n")
@@ -106,7 +106,7 @@ class LspClient(process: Process)(implicit ec: ExecutionContext) {
             }
             
             if (contentLength > 0) {
-              // Wait for complete message body (matching Python's approach)
+              // Wait for complete message body
               var readingBody = true
               while (buffer.length < contentLength && readingBody) {
                 val needed = contentLength - buffer.length

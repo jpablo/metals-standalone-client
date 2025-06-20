@@ -59,7 +59,14 @@ lazy val root = project
 
     // Native packager configuration
     executableScriptName := "metals-standalone-client",
-    Universal / packageName := "metals-standalone-client"
+    Universal / packageName := "metals-standalone-client",
+
+    // Assembly configuration for fat JAR
+    assembly / assemblyJarName := "metals-standalone-client.jar",
+    assembly / assemblyMergeStrategy := {
+      case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+      case x => MergeStrategy.first
+    }
 
   )
-  .enablePlugins(JavaAppPackaging)
+  .enablePlugins(JavaAppPackaging, AssemblyPlugin)

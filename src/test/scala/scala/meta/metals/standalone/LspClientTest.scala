@@ -1,8 +1,8 @@
 package scala.meta.metals.standalone
 
-import io.circe._
-import io.circe.parser._
-import io.circe.syntax._
+import io.circe.*
+import io.circe.parser.*
+import io.circe.syntax.*
 import munit.FunSuite
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, InputStream}
 import java.nio.charset.StandardCharsets
@@ -13,19 +13,19 @@ class LspClientTest extends FunSuite:
   implicit val ec: ExecutionContext = ExecutionContext.global
 
   class MockProcess(
-    inputStream: InputStream = new ByteArrayInputStream(Array.empty),
-    outputStream: ByteArrayOutputStream = new ByteArrayOutputStream()
+      inputStream: InputStream = new ByteArrayInputStream(Array.empty),
+      outputStream: ByteArrayOutputStream = new ByteArrayOutputStream()
   ) extends Process:
-    override def getOutputStream = outputStream
-    override def getInputStream = inputStream
-    override def getErrorStream = new ByteArrayInputStream(Array.empty)
-    override def waitFor() = 0
-    override def exitValue() = 0
-    override def destroy() = ()
+    override def getOutputStream   = outputStream
+    override def getInputStream    = inputStream
+    override def getErrorStream    = new ByteArrayInputStream(Array.empty)
+    override def waitFor()         = 0
+    override def exitValue()       = 0
+    override def destroy()         = ()
     override def destroyForcibly() = this
-    override def isAlive = true
-    override def pid() = 12345L
-    override def toHandle = ???
+    override def isAlive           = true
+    override def pid()             = 12345L
+    override def toHandle          = ???
 
   def createLspMessage(content: String): String =
     val contentBytes = content.getBytes(StandardCharsets.UTF_8)
@@ -33,13 +33,13 @@ class LspClientTest extends FunSuite:
 
   test("LspClient can be instantiated"):
     val mockProcess = new MockProcess()
-    val client = new LspClient(mockProcess)
+    val client      = new LspClient(mockProcess)
     assert(client != null)
 
   test("sendRequest creates proper JSON-RPC request"):
     val outputStream = new ByteArrayOutputStream()
-    val mockProcess = new MockProcess(outputStream = outputStream)
-    val client = new LspClient(mockProcess)
+    val mockProcess  = new MockProcess(outputStream = outputStream)
+    val client       = new LspClient(mockProcess)
 
     val params = Json.obj("test" -> "value".asJson)
     client.sendRequest("test/method", Some(params))
@@ -52,8 +52,8 @@ class LspClientTest extends FunSuite:
 
   test("sendNotification creates proper JSON-RPC notification"):
     val outputStream = new ByteArrayOutputStream()
-    val mockProcess = new MockProcess(outputStream = outputStream)
-    val client = new LspClient(mockProcess)
+    val mockProcess  = new MockProcess(outputStream = outputStream)
+    val client       = new LspClient(mockProcess)
 
     val params = Json.obj("test" -> "value".asJson)
     client.sendNotification("test/notification", Some(params))
@@ -66,8 +66,8 @@ class LspClientTest extends FunSuite:
 
   test("sendRequest without params works"):
     val outputStream = new ByteArrayOutputStream()
-    val mockProcess = new MockProcess(outputStream = outputStream)
-    val client = new LspClient(mockProcess)
+    val mockProcess  = new MockProcess(outputStream = outputStream)
+    val client       = new LspClient(mockProcess)
 
     client.sendRequest("test/method")
 
@@ -77,8 +77,8 @@ class LspClientTest extends FunSuite:
 
   test("sendNotification without params works"):
     val outputStream = new ByteArrayOutputStream()
-    val mockProcess = new MockProcess(outputStream = outputStream)
-    val client = new LspClient(mockProcess)
+    val mockProcess  = new MockProcess(outputStream = outputStream)
+    val client       = new LspClient(mockProcess)
 
     client.sendNotification("test/notification")
 
@@ -87,38 +87,42 @@ class LspClientTest extends FunSuite:
     assert(!output.contains("\"params\":"))
 
   test("handles window/showMessage correctly"):
-    val showMessageContent = Json.obj(
-      "jsonrpc" -> "2.0".asJson,
-      "method" -> "window/showMessage".asJson,
-      "params" -> Json.obj(
-        "type" -> 3.asJson, // Info
-        "message" -> "Test message".asJson
+    val showMessageContent = Json
+      .obj(
+        "jsonrpc" -> "2.0".asJson,
+        "method"  -> "window/showMessage".asJson,
+        "params"  -> Json.obj(
+          "type"    -> 3.asJson, // Info
+          "message" -> "Test message".asJson
+        )
       )
-    ).noSpaces
+      .noSpaces
 
     val inputStream = new ByteArrayInputStream(
       createLspMessage(showMessageContent).getBytes(StandardCharsets.UTF_8)
     )
     val mockProcess = new MockProcess(inputStream = inputStream)
-    val client = new LspClient(mockProcess)
+    val client      = new LspClient(mockProcess)
 
     // Just verify it doesn't crash when processing the message
     client.start()
     Thread.sleep(100) // Give time for message processing
 
   test("handles response messages correctly"):
-    val responseContent = Json.obj(
-      "jsonrpc" -> "2.0".asJson,
-      "id" -> 1.asJson,
-      "result" -> Json.obj("success" -> true.asJson)
-    ).noSpaces
+    val responseContent = Json
+      .obj(
+        "jsonrpc" -> "2.0".asJson,
+        "id"      -> 1.asJson,
+        "result"  -> Json.obj("success" -> true.asJson)
+      )
+      .noSpaces
 
-    val inputStream = new ByteArrayInputStream(
+    val inputStream  = new ByteArrayInputStream(
       createLspMessage(responseContent).getBytes(StandardCharsets.UTF_8)
     )
     val outputStream = new ByteArrayOutputStream()
-    val mockProcess = new MockProcess(inputStream = inputStream, outputStream = outputStream)
-    val client = new LspClient(mockProcess)
+    val mockProcess  = new MockProcess(inputStream = inputStream, outputStream = outputStream)
+    val client       = new LspClient(mockProcess)
 
     client.start()
 
@@ -132,8 +136,8 @@ class LspClientTest extends FunSuite:
 
   test("shutdown sends proper shutdown sequence"):
     val outputStream = new ByteArrayOutputStream()
-    val mockProcess = new MockProcess(outputStream = outputStream)
-    val client = new LspClient(mockProcess)
+    val mockProcess  = new MockProcess(outputStream = outputStream)
+    val client       = new LspClient(mockProcess)
 
     client.shutdown()
 
@@ -149,18 +153,19 @@ class LspClientTest extends FunSuite:
     // Test that we can parse our own message format
     val testMessage = Json.obj(
       "jsonrpc" -> "2.0".asJson,
-      "method" -> "test".asJson,
-      "params" -> Json.obj("key" -> "value".asJson)
+      "method"  -> "test".asJson,
+      "params"  -> Json.obj("key" -> "value".asJson)
     )
 
     val formatted = createLspMessage(testMessage.noSpaces)
 
     // Extract content length
     val headerEnd = formatted.indexOf("\r\n\r\n")
-    val header = formatted.substring(0, headerEnd)
-    val body = formatted.substring(headerEnd + 4)
+    val header    = formatted.substring(0, headerEnd)
+    val body      = formatted.substring(headerEnd + 4)
 
-    val contentLength = header.split("\r\n")
+    val contentLength = header
+      .split("\r\n")
       .find(_.startsWith("Content-Length:"))
       .map(_.split(":")(1).trim.toInt)
       .getOrElse(0)

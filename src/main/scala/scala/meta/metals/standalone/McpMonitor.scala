@@ -1,18 +1,16 @@
 package scala.meta.metals.standalone
 
-import io.circe._
-import io.circe.parser._
-import sttp.client3._
+import io.circe.*
+import io.circe.parser.*
+import sttp.client3.*
 
 import java.nio.file.{Files, Path}
 import java.util.logging.Logger
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 
-/**
- * Monitor and manage MCP server configuration.
- * Watches for configuration files and tests server health.
- */
+/** Monitor and manage MCP server configuration. Watches for configuration files and tests server health.
+  */
 class McpMonitor(projectPath: Path)(using ExecutionContext):
   private val logger = Logger.getLogger(classOf[McpMonitor].getName)
 
@@ -50,20 +48,27 @@ class McpMonitor(projectPath: Path)(using ExecutionContext):
       val cursor = config.hcursor
 
       // Try different configuration structures
-      val mcpServers = cursor.downField("mcpServers").as[Json]
+      val mcpServers = cursor
+        .downField("mcpServers")
+        .as[Json]
         .orElse(cursor.downField("servers").as[Json])
         .getOrElse(Json.obj())
 
       val serversCursor = mcpServers.hcursor
 
       // Look for metals-metals server
-      val metalsConfig = serversCursor.downField("metals-metals").as[Json]
+      val metalsConfig = serversCursor
+        .downField("metals-metals")
+        .as[Json]
         .orElse {
           // Try alternative naming - find any key containing "metals"
-          mcpServers.asObject.flatMap { obj =>
-            obj.keys.find(_.toLowerCase.contains("metals"))
-              .flatMap(key => serversCursor.downField(key).as[Json].toOption)
-          }.toRight("No metals server found")
+          mcpServers.asObject
+            .flatMap { obj =>
+              obj.keys
+                .find(_.toLowerCase.contains("metals"))
+                .flatMap(key => serversCursor.downField(key).as[Json].toOption)
+            }
+            .toRight("No metals server found")
         }
 
       metalsConfig match
@@ -71,12 +76,16 @@ class McpMonitor(projectPath: Path)(using ExecutionContext):
           val configCursor = metalsConf.hcursor
 
           // Extract URL from transport configuration
-          configCursor.downField("transport").downField("url").as[String]
+          configCursor
+            .downField("transport")
+            .downField("url")
+            .as[String]
             .orElse {
               // Try direct URL field
               configCursor.downField("url").as[String]
             }
-            .toOption.map { url =>
+            .toOption
+            .map { url =>
               logger.info(s"Found MCP URL: $url")
               url
             }
@@ -112,7 +121,7 @@ class McpMonitor(projectPath: Path)(using ExecutionContext):
 
   def waitForMcpServer(timeoutSeconds: Int = 60): Future[Option[String]] =
     val startTime = System.currentTimeMillis()
-    val endTime = startTime + (timeoutSeconds * 1000)
+    val endTime   = startTime + (timeoutSeconds * 1000)
 
     def checkForServer(): Future[Option[String]] =
       val currentTime = System.currentTimeMillis()
@@ -123,8 +132,7 @@ class McpMonitor(projectPath: Path)(using ExecutionContext):
       else
         // Log progress every 10 seconds
         val elapsed = (currentTime - startTime) / 1000
-        if elapsed > 0 && elapsed % 10 == 0 then
-          logger.info(s"Still waiting for MCP server... (${elapsed}s elapsed)")
+        if elapsed > 0 && elapsed % 10 == 0 then logger.info(s"Still waiting for MCP server... (${elapsed}s elapsed)")
 
         findMcpConfig() match
           case Some(configPath) =>
@@ -143,17 +151,17 @@ class McpMonitor(projectPath: Path)(using ExecutionContext):
                           Thread.sleep(1000)
                         }.flatMap(_ => checkForServer())
                     }
-                  case None =>
+                  case None         =>
                     // Config exists but no URL found, wait and try again
                     Future {
                       Thread.sleep(1000)
                     }.flatMap(_ => checkForServer())
-              case None =>
+              case None         =>
                 // Config exists but parsing failed, wait and try again
                 Future {
                   Thread.sleep(1000)
                 }.flatMap(_ => checkForServer())
-          case None =>
+          case None             =>
             // No config found yet, wait and try again
             Future {
               Thread.sleep(1000)
@@ -164,7 +172,7 @@ class McpMonitor(projectPath: Path)(using ExecutionContext):
 
   def getClaudeCommand(mcpUrl: String): String =
     val projectName = projectPath.getFileName.toString
-    val serverName = s"$projectName-metals"
+    val serverName  = s"$projectName-metals"
     s"claude mcp add --transport sse $serverName $mcpUrl"
 
   def printConnectionInfo(mcpUrl: String): Unit =
@@ -179,21 +187,24 @@ class McpMonitor(projectPath: Path)(using ExecutionContext):
 
   def monitorMcpHealth(mcpUrl: String, checkIntervalSeconds: Int = 30): Future[Boolean] =
     def healthCheck(): Future[Boolean] =
-      testMcpConnection(mcpUrl).flatMap { isHealthy =>
-        if isHealthy then
-          // Wait for the check interval, then check again
-          Future {
-            Thread.sleep(checkIntervalSeconds * 1000)
-          }.flatMap(_ => healthCheck())
-        else
-          logger.warning("MCP server appears to be down")
-          Future.successful(false)
-      }.recover { case _: InterruptedException =>
-          logger.info("Health monitoring stopped by user")
-          true // Return true to indicate graceful stop
-        case e =>
-          logger.severe(s"Error monitoring MCP health: ${e.getMessage}")
-          false
-      }
+      testMcpConnection(mcpUrl)
+        .flatMap { isHealthy =>
+          if isHealthy then
+            // Wait for the check interval, then check again
+            Future {
+              Thread.sleep(checkIntervalSeconds * 1000)
+            }.flatMap(_ => healthCheck())
+          else
+            logger.warning("MCP server appears to be down")
+            Future.successful(false)
+        }
+        .recover {
+          case _: InterruptedException =>
+            logger.info("Health monitoring stopped by user")
+            true // Return true to indicate graceful stop
+          case e =>
+            logger.severe(s"Error monitoring MCP health: ${e.getMessage}")
+            false
+        }
 
     healthCheck()

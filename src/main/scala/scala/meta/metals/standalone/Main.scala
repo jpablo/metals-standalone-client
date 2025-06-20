@@ -4,19 +4,17 @@ import java.nio.file.{Path, Paths}
 import java.util.logging.{ConsoleHandler, Level, Logger, SimpleFormatter}
 import scala.concurrent.{ExecutionContext, Future}
 
-/**
- * Main entry point for the standalone Metals MCP client.
- *
- * This application launches Metals language server in minimal mode and
- * enables the MCP server for AI assistant integration without requiring
- * a full IDE client like VS Code or Cursor.
- */
+/** Main entry point for the standalone Metals MCP client.
+  *
+  * This application launches Metals language server in minimal mode and enables the MCP server for AI assistant
+  * integration without requiring a full IDE client like VS Code or Cursor.
+  */
 object Main:
   private val logger = Logger.getLogger(Main.getClass.getName)
 
   case class Config(
-    projectPath: Path = Paths.get(".").toAbsolutePath.normalize(),
-    verbose: Boolean = false
+      projectPath: Path = Paths.get(".").toAbsolutePath.normalize(),
+      verbose: Boolean = false
   )
 
   def main(args: Array[String]): Unit =
@@ -35,48 +33,50 @@ object Main:
 
   private def parseArgs(args: Array[String]): Config =
     args.toList match
-      case Nil => Config()
-      case "--help" :: _ | "-h" :: _ =>
+      case Nil                              => Config()
+      case "--help" :: _ | "-h" :: _        =>
         printUsage()
         sys.exit(0)
       case "--verbose" :: Nil | "-v" :: Nil =>
         Config(verbose = true)
-      case "--verbose" :: path :: Nil =>
+      case "--verbose" :: path :: Nil       =>
         Config(Paths.get(path).toAbsolutePath.normalize(), verbose = true)
-      case "-v" :: path :: Nil =>
+      case "-v" :: path :: Nil              =>
         Config(Paths.get(path).toAbsolutePath.normalize(), verbose = true)
-      case path :: "--verbose" :: Nil =>
+      case path :: "--verbose" :: Nil       =>
         Config(Paths.get(path).toAbsolutePath.normalize(), verbose = true)
-      case path :: "-v" :: Nil =>
+      case path :: "-v" :: Nil              =>
         Config(Paths.get(path).toAbsolutePath.normalize(), verbose = true)
-      case path :: Nil =>
+      case path :: Nil                      =>
         Config(Paths.get(path).toAbsolutePath.normalize())
-      case invalid =>
+      case invalid                          =>
         logger.severe(s"Error: Invalid arguments: ${invalid.mkString(" ")}")
         printUsage()
         sys.exit(1)
 
   private def printUsage(): Unit =
     logger.info("""
-      |Metals Standalone MCP Client
-      |
-      |Usage: metals-light [OPTIONS] [PROJECT_PATH]
-      |
-      |Arguments:
-      |  PROJECT_PATH    Path to Scala project directory (default: current directory)
-      |
-      |Options:
-      |  -v, --verbose   Enable verbose logging
-      |  -h, --help      Show this help message
-      |
-      |Examples:
-      |  metals-light                    # Use current directory
-      |  metals-light /path/to/project   # Use specific project path
-      |  metals-light --verbose .        # Enable verbose logging
-      |
-      |This tool starts Metals language server with MCP server enabled,
-      |allowing AI assistants to interact with your Scala project.
-      |""".stripMargin)
+                  |Metals Standalone MCP Client
+                  |
+                  |Usage: java -jar metals-standalone-client.jar [OPTIONS] [PROJECT_PATH]
+                  |   or: sbt run [OPTIONS] [PROJECT_PATH]
+                  |
+                  |Arguments:
+                  |  PROJECT_PATH    Path to Scala project directory (default: current directory)
+                  |
+                  |Options:
+                  |  -v, --verbose   Enable verbose logging
+                  |  -h, --help      Show this help message
+                  |
+                  |Examples:
+                  |  java -jar metals-standalone-client.jar                    # Use current directory
+                  |  java -jar metals-standalone-client.jar /path/to/project   # Use specific project path
+                  |  java -jar metals-standalone-client.jar --verbose .        # Enable verbose logging
+                  |  sbt "run --verbose /my/scala/project"                     # Run via SBT
+                  |
+                  |This tool starts Metals language server with MCP server enabled,
+                  |allowing AI assistants to interact with your Scala project.
+                  |""".stripMargin)
 
   private def setupLogging(verbose: Boolean): Unit =
     val rootLogger = Logger.getLogger("")
@@ -88,26 +88,24 @@ object Main:
       setOutputStream(System.out)
 
     handler.setLevel(if verbose then Level.INFO else Level.WARNING)
-    handler.setFormatter(new SimpleFormatter():
-      override def format(record: java.util.logging.LogRecord): String =
-        if verbose then
-          s"[${record.getLevel}] ${record.getMessage}\n"
-        else
-          s"${record.getMessage}\n"
+    handler.setFormatter(
+      new SimpleFormatter():
+        override def format(record: java.util.logging.LogRecord): String =
+          if verbose then s"[${record.getLevel}] ${record.getMessage}\n"
+          else s"${record.getMessage}\n"
     )
 
     rootLogger.addHandler(handler)
 
-/**
- * Core application logic for the standalone Metals client.
- */
+/** Core application logic for the standalone Metals client.
+  */
 class MetalsLight(projectPath: Path, verbose: Boolean):
   private val logger = Logger.getLogger(classOf[MetalsLight].getName)
 
   implicit private val ec: ExecutionContext = ExecutionContext.global
 
-  private var launcher: Option[MetalsLauncher] = None
-  private var lspClient: Option[LspClient] = None
+  private var launcher: Option[MetalsLauncher]   = None
+  private var lspClient: Option[LspClient]       = None
   private var metalsClient: Option[MetalsClient] = None
 
   def run(): Int =
@@ -124,14 +122,14 @@ class MetalsLight(projectPath: Path, verbose: Boolean):
       logger.info("📦 Launching Metals language server...")
       val process = metalsLauncher.launchMetals() match
         case Some(p) => p
-        case None =>
+        case None    =>
           logger.severe("❌ Failed to launch Metals")
           return 1
 
       val client = new LspClient(process)
       lspClient = Some(client)
 
-      import scala.concurrent.duration._
+      import scala.concurrent.duration.*
       import scala.util.Try
       Try:
         scala.concurrent.Await.result(
@@ -152,7 +150,7 @@ class MetalsLight(projectPath: Path, verbose: Boolean):
                   case Some(mcpUrl) =>
                     monitor.printConnectionInfo(mcpUrl)
                     monitor.monitorMcpHealth(mcpUrl)
-                  case None =>
+                  case None         =>
                     logger.severe("❌ MCP server failed to start")
                     Future.successful(false)
                 }
@@ -164,13 +162,13 @@ class MetalsLight(projectPath: Path, verbose: Boolean):
           Duration.Inf
         )
         0
-      .recover { case _: InterruptedException =>
+      .recover {
+        case _: InterruptedException =>
           logger.info("\n🛑 Interrupted by user")
           0
-        case e: Exception =>
+        case e: Exception            =>
           logger.severe(s"❌ Application failed: ${e.getMessage}")
-          if verbose then
-            e.printStackTrace()
+          if verbose then e.printStackTrace()
           1
       }.get
 
@@ -178,10 +176,9 @@ class MetalsLight(projectPath: Path, verbose: Boolean):
       case _: InterruptedException =>
         logger.info("\n🛑 Interrupted by user")
         0
-      case e: Exception =>
+      case e: Exception            =>
         logger.severe(s"❌ Unexpected error: ${e.getMessage}")
-        if verbose then
-          e.printStackTrace()
+        if verbose then e.printStackTrace()
         1
 
   def shutdown(): Unit =

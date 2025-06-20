@@ -1,21 +1,21 @@
 package scala.meta.metals.standalone
 
 import java.nio.file.{Files, Path, Paths}
-import scala.jdk.CollectionConverters._
-import scala.jdk.OptionConverters._
+import scala.jdk.CollectionConverters.*
+import scala.jdk.OptionConverters.*
 import scala.util.Try
 import java.util.logging.Logger
 
-/**
- * Launches and manages the Metals language server process.
- *
- * Supports multiple discovery methods:
- * - Coursier installation/discovery
- * - Development SBT execution (when in metals repo)
- * - Local JAR files
- */
+/** Launches and manages the Metals language server process.
+  *
+  * Supports multiple discovery methods:
+  *   - Coursier installation/discovery
+  *   - Development SBT execution (when in metals repo)
+  *   - Local JAR files
+  */
 class MetalsLauncher(projectPath: Path):
   private val logger = Logger.getLogger(classOf[MetalsLauncher].getName)
+
   private var metalsProcess: Option[java.lang.Process] = None
 
   enum MetalsInstallation:
@@ -38,14 +38,13 @@ class MetalsLauncher(projectPath: Path):
         logger.info("Attempting to fetch Metals classpath via Coursier...")
 
         // Use coursier fetch command to get classpath
-        val command = Seq(cs, "fetch", "--classpath", "org.scalameta:metals_2.13:1.6.0")
+        val command        = Seq(cs, "fetch", "--classpath", "org.scalameta:metals_2.13:1.6.0")
         val processBuilder = new java.lang.ProcessBuilder(command.asJava)
-        val process = processBuilder.start()
-        val result = scala.io.Source.fromInputStream(process.getInputStream).mkString.trim
+        val process        = processBuilder.start()
+        val result         = scala.io.Source.fromInputStream(process.getInputStream).mkString.trim
         process.waitFor()
 
-        if result.nonEmpty then
-          findJavaExecutable().map(java => MetalsInstallation.CoursierInstallation(java, result))
+        if result.nonEmpty then findJavaExecutable().map(java => MetalsInstallation.CoursierInstallation(java, result))
         else
           logger.warning("Empty classpath returned from coursier")
           None
@@ -57,7 +56,7 @@ class MetalsLauncher(projectPath: Path):
 
   private def findSbtDevelopment(): Option[MetalsInstallation] =
     val currentDir = Paths.get(".").toAbsolutePath.normalize()
-    val buildSbt = currentDir.resolve("build.sbt")
+    val buildSbt   = currentDir.resolve("build.sbt")
 
     if Files.exists(buildSbt) then
       findExecutable("sbt").map { sbt =>
@@ -67,40 +66,42 @@ class MetalsLauncher(projectPath: Path):
     else None
 
   private def findJarInstallation(): Option[MetalsInstallation] =
-    val currentDir = Paths.get(".").toAbsolutePath.normalize()
+    val currentDir   = Paths.get(".").toAbsolutePath.normalize()
     val metalsTarget = currentDir.resolve("metals/target")
 
     if Files.exists(metalsTarget) then
-      Try {
-        Files.walk(metalsTarget)
+      Try:
+        Files
+          .walk(metalsTarget)
           .filter(p => p.toString.endsWith(".jar") && p.toString.contains("metals"))
           .findFirst()
           .toScala
-      }.toOption.flatten.flatMap { jarPath =>
+      .toOption.flatten.flatMap: jarPath =>
         findJavaExecutable().map(java => MetalsInstallation.JarInstallation(java, jarPath.toString))
-      }
     else None
 
   private def findDirectCommand(): Option[MetalsInstallation] =
     findExecutable("metals").map(MetalsInstallation.DirectCommand.apply)
 
   private def findExecutable(name: String): Option[String] =
-    Try
+    Try:
       val processBuilder = new java.lang.ProcessBuilder("which", name)
-      val process = processBuilder.start()
-      val result = scala.io.Source.fromInputStream(process.getInputStream).mkString.trim
+      val process        = processBuilder.start()
+      val result         = scala.io.Source.fromInputStream(process.getInputStream).mkString.trim
       process.waitFor()
       if result.nonEmpty then Some(result) else None
     .getOrElse(None)
 
   private def findJavaExecutable(): Option[String] =
     // Check JAVA_HOME first
-    sys.env.get("JAVA_HOME").flatMap { javaHome =>
-      val javaPath = Paths.get(javaHome, "bin", "java")
-      if Files.exists(javaPath) then Some(javaPath.toString) else None
-    }.orElse
-      // Check PATH
-      findExecutable("java")
+    sys.env
+      .get("JAVA_HOME")
+      .flatMap: javaHome =>
+        val javaPath = Paths.get(javaHome, "bin", "java")
+        if Files.exists(javaPath) then Some(javaPath.toString) else None
+      .orElse
+    // Check PATH
+    findExecutable("java")
 
   def launchMetals(): Option[java.lang.Process] =
     logger.info("Looking for Metals installation...")
@@ -135,24 +136,24 @@ class MetalsLauncher(projectPath: Path):
     installation match
       case MetalsInstallation.CoursierInstallation(java, classpath) =>
         Seq(java, "-cp", classpath, "scala.meta.metals.Main")
-      case MetalsInstallation.SbtDevelopment(sbt, _) =>
+      case MetalsInstallation.SbtDevelopment(sbt, _)                =>
         Seq(sbt, "metals/run")
-      case MetalsInstallation.JarInstallation(java, jarPath) =>
+      case MetalsInstallation.JarInstallation(java, jarPath)        =>
         Seq(java, "-jar", jarPath)
-      case MetalsInstallation.DirectCommand(executable) =>
+      case MetalsInstallation.DirectCommand(executable)             =>
         Seq(executable)
 
   private def getWorkingDirectory(installation: MetalsInstallation): Path =
     installation match
       case MetalsInstallation.SbtDevelopment(_, repoDir) => repoDir
-      case _ => projectPath
+      case _                                             => projectPath
 
   def isScalaProject(): Boolean =
     val scalaIndicators = Seq(
       "build.sbt",
       "Build.scala",
-      "build.sc", // Mill
-      "pom.xml",  // Maven with Scala
+      "build.sc",     // Mill
+      "pom.xml",      // Maven with Scala
       "build.gradle", // Gradle with Scala
       "project.scala" // Scala CLI
     )
@@ -168,10 +169,12 @@ class MetalsLauncher(projectPath: Path):
     if !hasIndicator then
       // Check for Scala source files
       val scalaExtensions = Seq(".scala", ".sc")
-      val hasScalaFiles = Try {
-        Files.walk(projectPath)
-          .anyMatch(p => scalaExtensions.exists(ext => p.toString.endsWith(ext)))
-      }.getOrElse(false)
+      val hasScalaFiles   =
+        Try:
+          Files
+            .walk(projectPath)
+            .anyMatch(p => scalaExtensions.exists(ext => p.toString.endsWith(ext)))
+        .getOrElse(false)
 
       if hasScalaFiles then
         logger.info("Detected Scala project via .scala files")
@@ -202,11 +205,11 @@ class MetalsLauncher(projectPath: Path):
         // Try graceful shutdown first
         process.destroy()
 
-        val terminated = try
-          process.exitValue() // This will throw if process is still running
-          true
-        catch
-          case _: IllegalThreadStateException => false
+        val terminated =
+          try
+            process.exitValue() // This will throw if process is still running
+            true
+          catch case _: IllegalThreadStateException => false
 
         if !terminated then
           logger.warning("Metals process did not terminate gracefully, force killing...")

@@ -57,12 +57,9 @@ lazy val root = project
     // Test framework
     testFrameworks := List(new TestFramework("munit.Framework")),
 
-    // Assembly plugin configuration for creating fat jar
-    assembly / assemblyJarName := "metals-standalone-client.jar",
-    assembly / assemblyMergeStrategy := {
-      case PathList("META-INF", xs @ _*) => MergeStrategy.discard
-      case x => MergeStrategy.first
-    }
+    // Native packager configuration
+    executableScriptName := "metals-standalone-client",
+    Universal / packageName := "metals-standalone-client"
 
   )
-  .enablePlugins(AssemblyPlugin)
+  .enablePlugins(JavaAppPackaging)

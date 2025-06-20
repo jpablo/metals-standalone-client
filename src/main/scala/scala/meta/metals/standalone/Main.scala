@@ -58,7 +58,7 @@ object Main:
     logger.info("""
                   |Metals Standalone MCP Client
                   |
-                  |Usage: java -jar metals-standalone-client.jar [OPTIONS] [PROJECT_PATH]
+                  |Usage: metals-standalone-client [OPTIONS] [PROJECT_PATH]
                   |   or: sbt run [OPTIONS] [PROJECT_PATH]
                   |
                   |Arguments:
@@ -69,10 +69,10 @@ object Main:
                   |  -h, --help      Show this help message
                   |
                   |Examples:
-                  |  java -jar metals-standalone-client.jar                    # Use current directory
-                  |  java -jar metals-standalone-client.jar /path/to/project   # Use specific project path
-                  |  java -jar metals-standalone-client.jar --verbose .        # Enable verbose logging
-                  |  sbt "run --verbose /my/scala/project"                     # Run via SBT
+                  |  metals-standalone-client                    # Use current directory
+                  |  metals-standalone-client /path/to/project   # Use specific project path
+                  |  metals-standalone-client --verbose .        # Enable verbose logging
+                  |  sbt "run --verbose /my/scala/project"       # Run via SBT
                   |
                   |This tool starts Metals language server with MCP server enabled,
                   |allowing AI assistants to interact with your Scala project.

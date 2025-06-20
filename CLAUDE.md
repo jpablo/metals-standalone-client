@@ -5,12 +5,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build Commands
 
 - **Compile**: `sbt compile`
-- **Assembly (fat JAR)**: `sbt assembly` 
+- **Package**: `sbt stage` (creates executable in target/universal/stage/bin/)
+- **Universal package**: `sbt Universal/packageBin` (creates distributable archive) 
 - **Run application**: `sbt run [--verbose] [PROJECT_PATH]`
 - **Test**: `sbt test`
 - **Quick build test**: `./test-build.sh`
 
-The main class is `scala.meta.metals.standalone.Main` and the assembled JAR is created as `metals-standalone-client.jar`.
+The main class is `scala.meta.metals.standalone.Main` and the executable is created as `target/universal/stage/bin/metals-standalone-client` (or `metals-standalone-client.bat` on Windows).
 
 ## Architecture
 

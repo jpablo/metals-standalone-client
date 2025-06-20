@@ -8,21 +8,47 @@ This tool provides a headless way to run Metals language server with MCP capabil
 
 ## Quick Start
 
-### Build
+### Download Pre-built Executables
+
+**Linux:**
 ```bash
+wget https://github.com/jpablo/metals-standalone-client/releases/latest/download/metals-standalone-client-linux-executable
+chmod +x metals-standalone-client-linux-executable
+./metals-standalone-client-linux-executable --help
+```
+
+**macOS:**
+```bash
+wget https://github.com/jpablo/metals-standalone-client/releases/latest/download/metals-standalone-client-macos-executable
+chmod +x metals-standalone-client-macos-executable
+./metals-standalone-client-macos-executable --help
+```
+
+**Windows:**
+```cmd
+REM Download both files to the same directory:
+REM - metals-standalone-client-windows-executable.bat
+REM - metals-standalone-client-windows-executable.jar
+metals-standalone-client-windows-executable.bat --help
+```
+
+### Build from Source
+
+```bash
+# Build fat JAR
+sbt assembly
+
+# Or build with native packager
 sbt stage
 ```
 
-### Run
+### Run from Source
 ```bash
 # Use current directory
-./target/universal/stage/bin/metals-standalone-client
+sbt run
 
-# Specify project path
-./target/universal/stage/bin/metals-standalone-client /path/to/scala/project
-
-# Enable verbose logging
-./target/universal/stage/bin/metals-standalone-client --verbose .
+# Specify project path and options
+sbt "run --verbose /path/to/scala/project"
 ```
 
 ### Options
@@ -46,9 +72,14 @@ The tool looks for MCP configuration files in:
 
 ## Requirements
 
+### For Pre-built Executables
 - Java 11 or higher
 - Scala project with `build.sbt`
-- SBT (for alternative execution via `sbt run`)
+
+### For Building from Source
+- Java 11 or higher
+- SBT 1.11.2 or higher
+- Scala project with `build.sbt`
 
 ## Development
 
@@ -62,6 +93,16 @@ sbt run [--verbose] [PROJECT_PATH]
 # Test
 sbt test
 
+# Build fat JAR
+sbt assembly
+
+# Build with native packager
+sbt stage
+
 # Create distribution package
 sbt Universal/packageBin
 ```
+
+## Automated Builds
+
+This project uses GitHub Actions to automatically build and release executables for Linux, macOS, and Windows on every push to the main branch. The releases include single executable files that are ready to use without compilation.

@@ -65,7 +65,19 @@ sbt "run --verbose /path/to/scala/project"
 
 ## Configuration
 
-The tool looks for MCP configuration files in:
+### Using with Claude Code
+
+Once the Metals standalone client is running, you can configure Claude Code to use the MCP server:
+
+```bash
+claude mcp add --transport sse metals http://localhost:60013/sse
+```
+
+This will enable Claude Code to interact with your Scala project through the Metals language server.
+
+### MCP Configuration Files
+
+The tool automatically looks for MCP configuration files in:
 - `.metals/mcp.json`
 - `.cursor/mcp.json`
 - `.vscode/mcp.json`

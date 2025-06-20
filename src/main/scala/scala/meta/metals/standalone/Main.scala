@@ -11,7 +11,7 @@ import scala.concurrent.{ExecutionContext, Future}
  * enables the MCP server for AI assistant integration without requiring
  * a full IDE client like VS Code or Cursor.
  */
-object Main {
+object Main:
   private val logger = Logger.getLogger(Main.getClass.getName)
 
   case class Config(
@@ -19,7 +19,7 @@ object Main {
     verbose: Boolean = false
   )
 
-  def main(args: Array[String]): Unit = {
+  def main(args: Array[String]): Unit =
     val config = parseArgs(args)
     setupLogging(config.verbose)
 
@@ -32,10 +32,9 @@ object Main {
 
     val exitCode = app.run()
     sys.exit(exitCode)
-  }
 
-  private def parseArgs(args: Array[String]): Config = {
-    args.toList match {
+  private def parseArgs(args: Array[String]): Config =
+    args.toList match
       case Nil => Config()
       case "--help" :: _ | "-h" :: _ =>
         printUsage()
@@ -56,10 +55,8 @@ object Main {
         logger.severe(s"Error: Invalid arguments: ${invalid.mkString(" ")}")
         printUsage()
         sys.exit(1)
-    }
-  }
 
-  private def printUsage(): Unit = {
+  private def printUsage(): Unit =
     logger.info("""
       |Metals Standalone MCP Client
       |
@@ -80,36 +77,31 @@ object Main {
       |This tool starts Metals language server with MCP server enabled,
       |allowing AI assistants to interact with your Scala project.
       |""".stripMargin)
-  }
 
-  private def setupLogging(verbose: Boolean): Unit = {
+  private def setupLogging(verbose: Boolean): Unit =
     val rootLogger = Logger.getLogger("")
-    rootLogger.setLevel(if (verbose) Level.INFO else Level.WARNING)
+    rootLogger.setLevel(if verbose then Level.INFO else Level.WARNING)
 
     rootLogger.getHandlers.foreach(rootLogger.removeHandler)
 
-    val handler = new ConsoleHandler() {
+    val handler = new ConsoleHandler():
       setOutputStream(System.out)
-    }
-    handler.setLevel(if (verbose) Level.INFO else Level.WARNING)
-    handler.setFormatter(new SimpleFormatter() {
-      override def format(record: java.util.logging.LogRecord): String = {
-        if (verbose) {
+
+    handler.setLevel(if verbose then Level.INFO else Level.WARNING)
+    handler.setFormatter(new SimpleFormatter():
+      override def format(record: java.util.logging.LogRecord): String =
+        if verbose then
           s"[${record.getLevel}] ${record.getMessage}\n"
-        } else {
+        else
           s"${record.getMessage}\n"
-        }
-      }
-    })
+    )
 
     rootLogger.addHandler(handler)
-  }
-}
 
 /**
  * Core application logic for the standalone Metals client.
  */
-class MetalsLight(projectPath: Path, verbose: Boolean) {
+class MetalsLight(projectPath: Path, verbose: Boolean):
   private val logger = Logger.getLogger(classOf[MetalsLight].getName)
 
   implicit private val ec: ExecutionContext = ExecutionContext.global
@@ -118,32 +110,30 @@ class MetalsLight(projectPath: Path, verbose: Boolean) {
   private var lspClient: Option[LspClient] = None
   private var metalsClient: Option[MetalsClient] = None
 
-  def run(): Int = {
-    try {
+  def run(): Int =
+    try
       logger.info("🚀 Starting Metals standalone MCP client...")
 
       val metalsLauncher = new MetalsLauncher(projectPath)
       launcher = Some(metalsLauncher)
 
-      if (!metalsLauncher.validateProject()) {
+      if !metalsLauncher.validateProject() then
         logger.severe("❌ Project validation failed")
         return 1
-      }
 
       logger.info("📦 Launching Metals language server...")
-      val process = metalsLauncher.launchMetals() match {
+      val process = metalsLauncher.launchMetals() match
         case Some(p) => p
         case None =>
           logger.severe("❌ Failed to launch Metals")
           return 1
-      }
 
       val client = new LspClient(process)
       lspClient = Some(client)
 
       import scala.concurrent.duration._
       import scala.util.Try
-      Try {
+      Try:
         scala.concurrent.Await.result(
           client.start().flatMap { _ =>
             logger.info("🔗 Connected to Metals LSP server")
@@ -152,7 +142,7 @@ class MetalsLight(projectPath: Path, verbose: Boolean) {
             metalsClient = Some(metals)
 
             metals.initialize().flatMap { success =>
-              if (success) {
+              if success then
                 logger.info("✅ Metals language server initialized")
 
                 val monitor = new McpMonitor(projectPath)
@@ -166,74 +156,63 @@ class MetalsLight(projectPath: Path, verbose: Boolean) {
                     logger.severe("❌ MCP server failed to start")
                     Future.successful(false)
                 }
-              } else {
+              else
                 logger.severe("❌ Failed to initialize Metals")
                 Future.successful(false)
-              }
             }
           },
           Duration.Inf
         )
         0
-      }.recover {
-        case _: InterruptedException =>
+      .recover { case _: InterruptedException =>
           logger.info("\n🛑 Interrupted by user")
           0
         case e: Exception =>
           logger.severe(s"❌ Application failed: ${e.getMessage}")
-          if (verbose) {
+          if verbose then
             e.printStackTrace()
-          }
           1
       }.get
 
-    } catch {
+    catch
       case _: InterruptedException =>
         logger.info("\n🛑 Interrupted by user")
         0
       case e: Exception =>
         logger.severe(s"❌ Unexpected error: ${e.getMessage}")
-        if (verbose) {
+        if verbose then
           e.printStackTrace()
-        }
         1
-    }
-  }
 
-  def shutdown(): Unit = {
+  def shutdown(): Unit =
     logger.info("🔄 Shutting down components...")
 
     // Shutdown in reverse order
     metalsClient.foreach { client =>
-      try {
+      try
         client.shutdown()
         logger.info("✅ Metals client shutdown")
-      } catch {
+      catch
         case e: Exception =>
           logger.warning(s"Error shutting down Metals client: ${e.getMessage}")
-      }
     }
 
     lspClient.foreach { client =>
-      try {
+      try
         client.shutdown()
         logger.info("✅ LSP client shutdown")
-      } catch {
+      catch
         case e: Exception =>
           logger.warning(s"Error shutting down LSP client: ${e.getMessage}")
-      }
     }
 
     launcher.foreach { launcher =>
-      try {
+      try
         launcher.shutdown()
         logger.info("✅ Metals process shutdown")
-      } catch {
+      catch
         case e: Exception =>
           logger.warning(s"Error shutting down Metals launcher: ${e.getMessage}")
-      }
     }
 
     logger.info("👋 Goodbye!")
-  }
-}

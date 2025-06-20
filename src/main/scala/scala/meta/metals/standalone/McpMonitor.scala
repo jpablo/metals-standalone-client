@@ -13,7 +13,7 @@ import scala.concurrent.{ExecutionContext, Future}
  * Monitor and manage MCP server configuration.
  * Watches for configuration files and tests server health.
  */
-class McpMonitor(projectPath: Path)(using ExecutionContext) {
+class McpMonitor(projectPath: Path)(using ExecutionContext):
   private val logger = Logger.getLogger(classOf[McpMonitor].getName)
 
   private val configPaths = Seq(
@@ -24,33 +24,29 @@ class McpMonitor(projectPath: Path)(using ExecutionContext) {
 
   private val httpClient = SimpleHttpClient()
 
-  def findMcpConfig(): Option[Path] = {
+  def findMcpConfig(): Option[Path] =
     configPaths.find { configPath =>
-      if (Files.exists(configPath)) {
+      if Files.exists(configPath) then
         logger.info(s"Found MCP config at: $configPath")
         true
-      } else false
+      else false
     }
-  }
 
-  def parseMcpConfig(configPath: Path): Option[Json] = {
-    try {
+  def parseMcpConfig(configPath: Path): Option[Json] =
+    try
       val content = Files.readString(configPath)
-      parse(content) match {
+      parse(content) match
         case Right(json) => Some(json)
         case Left(error) =>
           logger.severe(s"Error parsing MCP config $configPath: $error")
           None
-      }
-    } catch {
+    catch
       case e: Exception =>
         logger.severe(s"Error reading MCP config $configPath: ${e.getMessage}")
         None
-    }
-  }
 
-  def extractMcpUrl(config: Json): Option[String] = {
-    try {
+  def extractMcpUrl(config: Json): Option[String] =
+    try
       val cursor = config.hcursor
 
       // Try different configuration structures
@@ -70,7 +66,7 @@ class McpMonitor(projectPath: Path)(using ExecutionContext) {
           }.toRight("No metals server found")
         }
 
-      metalsConfig match {
+      metalsConfig match
         case Right(metalsConf) =>
           val configCursor = metalsConf.hcursor
 
@@ -88,17 +84,14 @@ class McpMonitor(projectPath: Path)(using ExecutionContext) {
         case Left(_) =>
           logger.info("No metals server configuration found")
           None
-      }
-    } catch {
+    catch
       case e: Exception =>
         logger.severe(s"Error extracting MCP URL: ${e.getMessage}")
         None
-    }
-  }
 
-  def testMcpConnection(url: String, timeoutSeconds: Int = 5): Future[Boolean] = {
+  def testMcpConnection(url: String, timeoutSeconds: Int = 5): Future[Boolean] =
     Future {
-      try {
+      try
         // Try to connect to the base URL (without /sse endpoint)
         val baseUrl = url.stripSuffix("/sse").stripSuffix("/")
 
@@ -111,81 +104,70 @@ class McpMonitor(projectPath: Path)(using ExecutionContext) {
 
         // Some HTTP errors are acceptable (like 404) - server is responding
         response.code.code < 500
-      } catch {
+      catch
         case e: Exception =>
           logger.info(s"MCP connection test failed: ${e.getMessage}")
           false
-      }
     }
-  }
 
-  def waitForMcpServer(timeoutSeconds: Int = 60): Future[Option[String]] = {
+  def waitForMcpServer(timeoutSeconds: Int = 60): Future[Option[String]] =
     val startTime = System.currentTimeMillis()
     val endTime = startTime + (timeoutSeconds * 1000)
 
-    def checkForServer(): Future[Option[String]] = {
+    def checkForServer(): Future[Option[String]] =
       val currentTime = System.currentTimeMillis()
 
-      if (currentTime >= endTime) {
+      if currentTime >= endTime then
         logger.warning(s"MCP server did not start within $timeoutSeconds seconds")
         Future.successful(None)
-      } else {
+      else
         // Log progress every 10 seconds
         val elapsed = (currentTime - startTime) / 1000
-        if (elapsed > 0 && elapsed % 10 == 0) {
+        if elapsed > 0 && elapsed % 10 == 0 then
           logger.info(s"Still waiting for MCP server... (${elapsed}s elapsed)")
-        }
 
-        findMcpConfig() match {
+        findMcpConfig() match
           case Some(configPath) =>
-            parseMcpConfig(configPath) match {
+            parseMcpConfig(configPath) match
               case Some(config) =>
-                extractMcpUrl(config) match {
+                extractMcpUrl(config) match
                   case Some(mcpUrl) =>
                     testMcpConnection(mcpUrl).flatMap { isHealthy =>
-                      if (isHealthy) {
+                      if isHealthy then
                         logger.info(s"MCP server is ready at: $mcpUrl")
                         Future.successful(Some(mcpUrl))
-                      } else {
+                      else
                         logger.info("MCP config found but server not responding yet")
                         // Wait 1 second and try again
                         Future {
                           Thread.sleep(1000)
                         }.flatMap(_ => checkForServer())
-                      }
                     }
                   case None =>
                     // Config exists but no URL found, wait and try again
                     Future {
                       Thread.sleep(1000)
                     }.flatMap(_ => checkForServer())
-                }
               case None =>
                 // Config exists but parsing failed, wait and try again
                 Future {
                   Thread.sleep(1000)
                 }.flatMap(_ => checkForServer())
-            }
           case None =>
             // No config found yet, wait and try again
             Future {
               Thread.sleep(1000)
             }.flatMap(_ => checkForServer())
-        }
-      }
-    }
 
     logger.info("Waiting for MCP server to start...")
     checkForServer()
-  }
 
-  def getClaudeCommand(mcpUrl: String): String = {
+  def getClaudeCommand(mcpUrl: String): String =
     val projectName = projectPath.getFileName.toString
     val serverName = s"$projectName-metals"
     s"claude mcp add --transport sse $serverName $mcpUrl"
-  }
 
-  def printConnectionInfo(mcpUrl: String): Unit = {
+  def printConnectionInfo(mcpUrl: String): Unit =
     println()
     println("🎉 MCP server is running!")
     println(s"URL: $mcpUrl")
@@ -194,30 +176,24 @@ class McpMonitor(projectPath: Path)(using ExecutionContext) {
     println(s"  ${getClaudeCommand(mcpUrl)}")
     println()
     println("Press Ctrl+C to stop the server...")
-  }
 
-  def monitorMcpHealth(mcpUrl: String, checkIntervalSeconds: Int = 30): Future[Boolean] = {
-    def healthCheck(): Future[Boolean] = {
+  def monitorMcpHealth(mcpUrl: String, checkIntervalSeconds: Int = 30): Future[Boolean] =
+    def healthCheck(): Future[Boolean] =
       testMcpConnection(mcpUrl).flatMap { isHealthy =>
-        if (isHealthy) {
+        if isHealthy then
           // Wait for the check interval, then check again
           Future {
             Thread.sleep(checkIntervalSeconds * 1000)
           }.flatMap(_ => healthCheck())
-        } else {
+        else
           logger.warning("MCP server appears to be down")
           Future.successful(false)
-        }
-      }.recover {
-        case _: InterruptedException =>
+      }.recover { case _: InterruptedException =>
           logger.info("Health monitoring stopped by user")
           true // Return true to indicate graceful stop
         case e =>
           logger.severe(s"Error monitoring MCP health: ${e.getMessage}")
           false
       }
-    }
 
     healthCheck()
-  }
-}

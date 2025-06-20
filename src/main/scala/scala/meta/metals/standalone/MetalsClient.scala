@@ -11,16 +11,16 @@ import scala.concurrent.{ExecutionContext, Future}
  * Minimal Metals Language Client that implements the essential LSP protocol
  * to start Metals and enable the MCP server.
  */
-class MetalsClient(projectPath: Path, lspClient: LspClient)(using ExecutionContext) {
+class MetalsClient(projectPath: Path, lspClient: LspClient)(using ExecutionContext):
   private val logger = Logger.getLogger(classOf[MetalsClient].getName)
 
   @volatile private var initialized = false
 
-  def initialize(): Future[Boolean] = {
-    if (initialized) {
+  def initialize(): Future[Boolean] =
+    if initialized then
       logger.info("Already initialized, returning success")
       Future.successful(true)
-    } else {
+    else
       logger.info("Initializing Metals language server...")
 
       val initParams = createInitializeParams()
@@ -39,7 +39,7 @@ class MetalsClient(projectPath: Path, lspClient: LspClient)(using ExecutionConte
         logger.info("Received initialize response from Metals")
         val hasCapabilities = result.hcursor.downField("capabilities").succeeded
 
-        if (hasCapabilities) {
+        if hasCapabilities then
           logger.info("Metals language server initialized successfully")
 
           logger.info("Sending initialized notification...")
@@ -53,21 +53,17 @@ class MetalsClient(projectPath: Path, lspClient: LspClient)(using ExecutionConte
           initialized = true
           logger.info("Initialization complete!")
           true
-        } else {
+        else
           logger.severe("Failed to initialize Metals language server - no capabilities in response")
           logger.severe(s"Response was: $result")
           false
-        }
-      }.recover {
-        case e =>
+      }.recover { case e =>
           logger.severe(s"Metals initialization failed: ${e.getMessage}")
           e.printStackTrace()
           false
       }
-    }
-  }
 
-  private def createInitializeParams(): Json = {
+  private def createInitializeParams(): Json =
     Json.obj(
       "processId" -> Json.Null,
       "clientInfo" -> Json.obj(
@@ -84,9 +80,8 @@ class MetalsClient(projectPath: Path, lspClient: LspClient)(using ExecutionConte
       "capabilities" -> createClientCapabilities(),
       "initializationOptions" -> createInitializationOptions()
     )
-  }
 
-  private def createClientCapabilities(): Json = {
+  private def createClientCapabilities(): Json =
     Json.obj(
       "workspace" -> Json.obj(
         "applyEdit" -> true.asJson,
@@ -133,9 +128,8 @@ class MetalsClient(projectPath: Path, lspClient: LspClient)(using ExecutionConte
         )
       )
     )
-  }
 
-  private def createInitializationOptions(): Json = {
+  private def createInitializationOptions(): Json =
     Json.obj(
       "compilerOptions" -> Json.obj(
         "completionCommand" -> "editor.action.triggerSuggest".asJson,
@@ -159,9 +153,8 @@ class MetalsClient(projectPath: Path, lspClient: LspClient)(using ExecutionConte
       "automaticImportBuild" -> "off".asJson,
       "askToReconnect" -> false.asJson
     )
-  }
 
-  private def configureMetals(): Unit = {
+  private def configureMetals(): Unit =
     logger.info("Configuring Metals to enable MCP server...")
 
     val configParams = Json.obj(
@@ -173,10 +166,7 @@ class MetalsClient(projectPath: Path, lspClient: LspClient)(using ExecutionConte
     )
 
     lspClient.sendNotification("workspace/didChangeConfiguration", Some(configParams))
-  }
 
-  def shutdown(): Future[Unit] = {
+  def shutdown(): Future[Unit] =
     logger.info("Shutting down Metals client...")
     lspClient.shutdown().map(_ => ())
-  }
-}

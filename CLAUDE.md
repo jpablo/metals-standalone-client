@@ -40,7 +40,7 @@ The application looks for MCP configuration files in:
 
 ### Dependencies
 
-Built with Scala 2.13.16 using:
+Built with Scala 3.7.1 using:
 - Circe for JSON processing
 - STTP for HTTP client functionality
 - Coursier for Metals discovery

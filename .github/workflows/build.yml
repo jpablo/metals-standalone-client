@@ -114,11 +114,20 @@ jobs:
       run: |
         cd release-artifacts
         
-        # Copy single executables to root level
-        cp metals-standalone-client-linux/metals-standalone-client metals-standalone-client-linux
-        cp metals-standalone-client-macos/metals-standalone-client metals-standalone-client-macos
-        cp metals-standalone-client-windows/metals-standalone-client.bat metals-standalone-client-windows.bat
-        cp metals-standalone-client-windows/metals-standalone-client.jar metals-standalone-client-windows.jar
+        # List directory structure for debugging
+        ls -la
+        echo "Linux directory contents:"
+        ls -la metals-standalone-client-linux/
+        echo "macOS directory contents:"
+        ls -la metals-standalone-client-macos/
+        echo "Windows directory contents:"
+        ls -la metals-standalone-client-windows/
+        
+        # Copy single executables to root level with different names
+        cp metals-standalone-client-linux/metals-standalone-client metals-standalone-client-linux-executable
+        cp metals-standalone-client-macos/metals-standalone-client metals-standalone-client-macos-executable
+        cp metals-standalone-client-windows/metals-standalone-client.bat metals-standalone-client-windows-executable.bat
+        cp metals-standalone-client-windows/metals-standalone-client.jar metals-standalone-client-windows-executable.jar
 
     - name: Generate release tag
       id: tag
@@ -141,26 +150,26 @@ jobs:
           ### Linux
           ```bash
           # Download single executable file
-          wget https://github.com/jpablo/metals-standalone-client/releases/download/${{ steps.tag.outputs.tag }}/metals-standalone-client-linux
-          chmod +x metals-standalone-client-linux
-          ./metals-standalone-client-linux --help
+          wget https://github.com/jpablo/metals-standalone-client/releases/download/${{ steps.tag.outputs.tag }}/metals-standalone-client-linux-executable
+          chmod +x metals-standalone-client-linux-executable
+          ./metals-standalone-client-linux-executable --help
           ```
           
           ### macOS
           ```bash
           # Download single executable file
-          wget https://github.com/jpablo/metals-standalone-client/releases/download/${{ steps.tag.outputs.tag }}/metals-standalone-client-macos
-          chmod +x metals-standalone-client-macos
-          ./metals-standalone-client-macos --help
+          wget https://github.com/jpablo/metals-standalone-client/releases/download/${{ steps.tag.outputs.tag }}/metals-standalone-client-macos-executable
+          chmod +x metals-standalone-client-macos-executable
+          ./metals-standalone-client-macos-executable --help
           ```
           
           ### Windows
           ```cmd
           # Download both files to the same directory
-          # Download: metals-standalone-client-windows.bat
-          # Download: metals-standalone-client-windows.jar
+          # Download: metals-standalone-client-windows-executable.bat
+          # Download: metals-standalone-client-windows-executable.jar
           # Then run:
-          metals-standalone-client-windows.bat --help
+          metals-standalone-client-windows-executable.bat --help
           ```
           
           Built with:
@@ -168,10 +177,10 @@ jobs:
           - SBT 1.11.2
           - Java 17
         files: |
-          release-artifacts/metals-standalone-client-linux
-          release-artifacts/metals-standalone-client-macos
-          release-artifacts/metals-standalone-client-windows.bat
-          release-artifacts/metals-standalone-client-windows.jar
+          release-artifacts/metals-standalone-client-linux-executable
+          release-artifacts/metals-standalone-client-macos-executable
+          release-artifacts/metals-standalone-client-windows-executable.bat
+          release-artifacts/metals-standalone-client-windows-executable.jar
         draft: false
         prerelease: false
       env:

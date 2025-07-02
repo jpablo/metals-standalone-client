@@ -1,16 +1,9 @@
-### SBT template
-# Simple Build Tool
-# http://www.scala-sbt.org/release/docs/Getting-Started/Directories.html#configuring-version-control
+### Scala-CLI build files
+.scala-build/
 
-dist/*
-target/
-lib_managed/
-src_managed/
-project/boot/
-project/plugins/project/
-.history
-.cache
-.lib/
+### Generated executables
+metals-standalone-client
+metals-standalone-client-standalone
 
 ### Scala template
 *.class

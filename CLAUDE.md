@@ -4,14 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Build Commands
 
-- **Compile**: `sbt compile`
-- **Package**: `sbt stage` (creates executable in target/universal/stage/bin/)
-- **Universal package**: `sbt Universal/packageBin` (creates distributable archive) 
-- **Run application**: `sbt run [--verbose] [PROJECT_PATH]`
-- **Test**: `sbt test`
+- **Compile**: `scala-cli compile .`
+- **Run application**: `scala-cli run . [-- [--verbose] [PROJECT_PATH]]`
+- **Test**: `scala-cli test .`
+- **Package (Assembly JAR)**: `scala-cli --power package . --assembly -o metals-standalone-client`
+- **Package (Standalone)**: `scala-cli --power package . --standalone -o metals-standalone-client`
 - **Quick build test**: `./test-build.sh`
 
-The main class is `scala.meta.metals.standalone.Main` and the executable is created as `target/universal/stage/bin/metals-standalone-client` (or `metals-standalone-client.bat` on Windows).
+The main class is `scala.meta.metals.standalone.Main` and is configured in `project.scala`. The executable JAR is created as `metals-standalone-client` in the current directory.
 
 ## Architecture
 
@@ -41,7 +41,7 @@ The application looks for MCP configuration files in:
 
 ### Dependencies
 
-Built with Scala 3.7.1 using:
+Built with Scala 3.7.1 using scala-cli and configured in `project.scala`:
 - Circe for JSON processing
 - STTP for HTTP client functionality
 - Coursier for Metals discovery

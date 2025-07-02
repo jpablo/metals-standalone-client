@@ -1,6 +1,6 @@
 # Metals Standalone MCP Client
 
-A standalone client that launches the Metals language server with MCP (Model Context Protocol) support, enabling AI assistants to interact with Scala projects.
+A standalone client that launches the Metals language server with MCP (Model Context Protocol) support, enabling AI assistants to interact with Scala projects. Built with scala-cli for fast compilation and easy distribution.
 
 ## Purpose
 
@@ -35,20 +35,20 @@ metals-standalone-client-windows-executable.bat --help
 ### Build from Source
 
 ```bash
-# Build fat JAR
-sbt assembly
+# Build assembly JAR
+scala-cli --power package . --assembly -f -o metals-standalone-client
 
-# Or build with native packager
-sbt stage
+# Or build standalone executable
+scala-cli --power package . --standalone -f -o metals-standalone-client
 ```
 
 ### Run from Source
 ```bash
 # Use current directory
-sbt run
+scala-cli run .
 
 # Specify project path and options
-sbt "run --verbose /path/to/scala/project"
+scala-cli run . -- --verbose /path/to/scala/project
 ```
 
 ### Options
@@ -90,29 +90,46 @@ The tool automatically looks for MCP configuration files in:
 
 ### For Building from Source
 - Java 11 or higher
-- SBT 1.11.2 or higher
-- Scala project with `build.sbt`
+- scala-cli (install from https://scala-cli.virtuslab.org)
+- Scala project with `build.sbt`, `project.scala`, or `.scala` files
+
+## Project Structure
+
+This project uses scala-cli for build management. The configuration is defined in `project.scala` using scala-cli's "using directives":
+
+```scala
+//> using scala "3.7.1"
+//> using dep "io.circe::circe-core:0.14.14"
+//> using dep "io.circe::circe-parser:0.14.14"
+// ... other dependencies
+```
+
+This approach provides:
+- Fast compilation and startup times
+- Self-contained dependency management
+- Simple configuration in a single file
+- Perfect for MCP server use cases where simplicity and speed matter
 
 ## Development
 
 ```bash
 # Compile
-sbt compile
+scala-cli compile .
 
-# Run via SBT
-sbt run [--verbose] [PROJECT_PATH]
+# Run application
+scala-cli run . -- [--verbose] [PROJECT_PATH]
 
 # Test
-sbt test
+scala-cli test .
 
-# Build fat JAR
-sbt assembly
+# Build assembly JAR
+scala-cli --power package . --assembly -f -o metals-standalone-client
 
-# Build with native packager
-sbt stage
+# Build standalone executable
+scala-cli --power package . --standalone -f -o metals-standalone-client
 
-# Create distribution package
-sbt Universal/packageBin
+# Quick build test (compile + test + package)
+./test-build.sh
 ```
 
 ## Automated Builds

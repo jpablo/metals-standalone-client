@@ -20,13 +20,10 @@ jobs:
         include:
           - os: ubuntu-latest
             artifact-name: metals-standalone-client-linux
-            executable-path: target/universal/stage/bin/metals-standalone-client
           - os: macos-latest
             artifact-name: metals-standalone-client-macos
-            executable-path: target/universal/stage/bin/metals-standalone-client
           - os: windows-latest
             artifact-name: metals-standalone-client-windows
-            executable-path: target/universal/stage/bin/metals-standalone-client.bat
 
     steps:
     - name: Checkout code
@@ -38,53 +35,52 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Set up SBT
-      uses: sbt/setup-sbt@v1
+    - name: Set up scala-cli
+      uses: VirtusLab/scala-cli-setup@v1
+      with:
+        power: true
 
-    - name: Cache SBT dependencies
+    - name: Cache scala-cli dependencies
       uses: actions/cache@v4
       with:
         path: |
-          ~/.sbt
-          ~/.ivy2/cache
-          ~/.coursier/cache
-        key: ${{ runner.os }}-sbt-${{ hashFiles('**/build.sbt', 'project/**/*.scala', 'project/**/*.sbt') }}
+          ~/.cache/coursier
+          ~/.cache/scala-cli
+        key: ${{ runner.os }}-scala-cli-${{ hashFiles('project.scala', '**/*.scala') }}
         restore-keys: |
-          ${{ runner.os }}-sbt-
+          ${{ runner.os }}-scala-cli-
 
     - name: Run tests
-      run: sbt test
+      run: scala-cli test .
 
     - name: Build application
-      run: sbt assembly
+      run: scala-cli --power package . --assembly -f -o metals-standalone-client
 
-    - name: Verify JAR exists
+    - name: Verify executable exists
       shell: bash
       run: |
-        ls -la target/scala-3.7.1/metals-standalone-client.jar
+        ls -la metals-standalone-client
 
-    - name: Create single executable file
+    - name: Prepare artifacts
       shell: bash
       run: |
         mkdir -p artifacts
+        # scala-cli creates self-contained executables, so just copy them
         if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-          # For Windows, create a batch file that runs the JAR
-          cat > artifacts/metals-standalone-client.bat << 'EOF'
+          # On Windows, scala-cli creates a .bat file and .jar
+          cp metals-standalone-client artifacts/metals-standalone-client.bat 2>/dev/null || echo "No .bat file found"
+          cp metals-standalone-client.jar artifacts/metals-standalone-client.jar 2>/dev/null || echo "No .jar file found"
+          # If no .bat file, create one
+          if [[ ! -f artifacts/metals-standalone-client.bat ]]; then
+            cat > artifacts/metals-standalone-client.bat << 'EOF'
         @echo off
         java -jar "%~dp0metals-standalone-client.jar" %*
         EOF
-          cp target/scala-3.7.1/metals-standalone-client.jar artifacts/
+            cp metals-standalone-client artifacts/metals-standalone-client.jar
+          fi
         else
-          # For Unix systems, create a self-executing script with embedded JAR
-          cat > artifacts/metals-standalone-client << 'EOF'
-        #!/bin/bash
-        # Self-extracting JAR script
-        MYSELF=`which "$0" 2>/dev/null`
-        [ $? -gt 0 -a -f "$0" ] && MYSELF="./$0"
-        java -jar "$MYSELF" "$@"
-        exit $?
-        EOF
-          cat target/scala-3.7.1/metals-standalone-client.jar >> artifacts/metals-standalone-client
+          # On Unix systems, scala-cli creates a self-contained executable
+          cp metals-standalone-client artifacts/
           chmod +x artifacts/metals-standalone-client
         fi
 
@@ -174,7 +170,7 @@ jobs:
           
           Built with:
           - Scala 3.7.1
-          - SBT 1.11.2
+          - scala-cli (latest)
           - Java 17
         files: |
           release-artifacts/metals-standalone-client-linux-executable

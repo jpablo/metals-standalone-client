@@ -83,7 +83,7 @@ class LspClientTest extends FunSuite:
     val mockProcess = new MockProcess(inputStream = inputStream)
     val client      = new LspClient(mockProcess)
 
-    Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(1.second)(client.start()))
+    val _ = Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(1.second)(client.start()))
     Thread.sleep(100)
 
   test("handles response messages correctly (Kyo)"):
@@ -102,7 +102,7 @@ class LspClientTest extends FunSuite:
     val client       = new LspClient(mockProcess)
 
     // Start reader
-    Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(1.second)(client.start()))
+    val _ = Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(1.second)(client.start()))
     // Send a request that will be resolved by the preloaded response with id=1
     val result = Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(1.second)(client.sendRequest("test/method", None)))
     assert(result != null, "request should complete with a JSON result")

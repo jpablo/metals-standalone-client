@@ -6,6 +6,7 @@ import munit.FunSuite
 import java.nio.file.{Files, Path}
 import java.nio.charset.StandardCharsets
 import kyo.*
+import scala.concurrent.ExecutionContext.Implicits.global
 
 class McpMonitorTest extends FunSuite:
 
@@ -25,7 +26,7 @@ class McpMonitorTest extends FunSuite:
 
   tempDir.test("McpMonitorK can be instantiated") { tempDir =>
     val monitor = new McpMonitor(tempDir)
-    assert(monitor != null)
+    assert(monitor != null, "monitor should be instantiated")
   }
 
   tempDir.test("findMcpConfig returns None when no config exists") { tempDir =>
@@ -224,13 +225,15 @@ class McpMonitorTest extends FunSuite:
   test("testMcpConnection with invalid URL returns false"):
     val monitor = new McpMonitor(Files.createTempDirectory("test"))
     import kyo.AllowUnsafe.embrace.danger
-    val result = Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(5.seconds)(monitor.testMcpConnection("http://invalid-url-that-does-not-exist", 1)))
+    val future = monitor.testMcpConnection("http://invalid-url-that-does-not-exist", 1)
+    val result = Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(5.seconds)(Async.fromFuture(future)))
     assertEquals(result, false)
 
   tempDir.test("waitForMcpServer times out when no server starts") { tempDir =>
     val monitor = new McpMonitor(tempDir)
     import kyo.AllowUnsafe.embrace.danger
-    val result = Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(5.seconds)(monitor.waitForMcpServer(1)))
+    val future = monitor.waitForMcpServer(1)
+    val result = Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(5.seconds)(Async.fromFuture(future)))
     assertEquals(result, None)
   }
 
@@ -259,6 +262,7 @@ class McpMonitorTest extends FunSuite:
     writer.setDaemon(true)
     writer.start()
 
-    val result = Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(15.seconds)(monitor.waitForMcpServer(10)))
-    assert(result.isDefined || result.isEmpty)
+    val future = monitor.waitForMcpServer(10)
+    val result = Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(15.seconds)(Async.fromFuture(future)))
+    assert(result.isDefined || result.isEmpty, "result should be either Some or None")
   }

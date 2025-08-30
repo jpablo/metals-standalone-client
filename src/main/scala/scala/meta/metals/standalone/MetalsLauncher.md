@@ -1,9 +1,9 @@
-# MetalsLauncherK — Kyo Port Overview
+# MetalsLauncher — Kyo Effect Overview
 
 Purpose
 - Provide a Kyo-based (effectful) implementation of the Metals launcher.
 - Make side effects explicit and composable using Kyo’s `Sync` and `Process` APIs.
-- Enable gradual migration: this coexists with the original `MetalsLauncher`.
+- This is the canonical launcher; previous non‑Kyo version has been removed.
 
 What It Does
 - Discovery order: Coursier (`cs`/`coursier`), SBT development, local Metals JAR, direct `metals` command.
@@ -24,13 +24,13 @@ Implementation Notes
 - Side effects (logging, FS checks, env lookups) are wrapped in `Sync.defer`.
 
 Using From Non‑Kyo Code
-- Run Kyo effects with `Sync.Unsafe.evalOrThrow(...)` when you don’t have a Kyo runtime handy.
+- Run Kyo effects with `Sync.Unsafe.evalOrThrow(...)` when integrating from non‑Kyo contexts (tests, simple utilities).
 
 ```scala
 import kyo.*
 import java.nio.file.Paths
 
-val launcher = new MetalsLauncherK(Paths.get("."))
+val launcher = new MetalsLauncher(Paths.get("."))
 val ok       = Sync.Unsafe.evalOrThrow(launcher.validateProject())
 if (ok) {
   val procOpt = Sync.Unsafe.evalOrThrow(launcher.launchMetals())
@@ -42,7 +42,6 @@ if (ok) {
 Using Within Kyo Code
 - If you already run inside Kyo (e.g., a `KyoApp`), call methods directly with an implicit `Frame` and compose with other effects.
 
-Migration Tips
-- Keep `MetalsLauncher` as the default until upstream callers can accept Kyo effects.
-- Introduce adapter methods that wrap Kyo effects with `Sync.Unsafe.evalOrThrow` to ease integration.
-- When ready, thread `using Frame` through call sites and remove adapters.
+Notes
+- Effectful logging via `kyo.Log` replaces `java.util.logging`.
+- Executable discovery avoids external `which` to remain portable.

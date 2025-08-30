@@ -70,7 +70,7 @@ class LspClient(process: java.lang.Process)(using Frame):
           bytes <- Sync.defer(new Array[Byte](4096))
           read  <- Sync.defer(stdout.read(bytes))
           _     <-
-            if read == -1 then Log.warn("End of stream from Metals process")
+            if read == -1 then logEndOfStream()
             else if read == 0 then Sync.defer(Thread.sleep(10))
             else Sync.defer(())
           newBuf = if read > 0 then buffer + new String(bytes, 0, read, StandardCharsets.UTF_8) else buffer
@@ -207,3 +207,8 @@ class LspClient(process: java.lang.Process)(using Frame):
         ()
       }
     yield ()
+  private def logEndOfStream(): Unit < Sync =
+    if sys.props.get("LSP_TEST_QUIET").isDefined then
+      Log.debug("End of stream from Metals process")
+    else
+      Log.warn("End of stream from Metals process")

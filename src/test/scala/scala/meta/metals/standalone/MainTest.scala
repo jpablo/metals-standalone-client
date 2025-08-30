@@ -48,14 +48,14 @@ class MainTest extends FunSuite:
     assertEquals(config2.verbose, true)
 
   test("parseArgs fails with invalid arguments"):
-    intercept[SystemExit]:
+    val _ = intercept[SystemExit]:
       Main.parseArgs(Array("invalid", "too", "many", "args"))
 
   test("parseArgs handles help flags"):
-    intercept[SystemExit]:
+    val _ = intercept[SystemExit]:
       Main.parseArgs(Array("--help"))
 
-    intercept[SystemExit]:
+    val _ = intercept[SystemExit]:
       Main.parseArgs(Array("-h"))
 
 // Helper class to catch sys.exit calls in tests

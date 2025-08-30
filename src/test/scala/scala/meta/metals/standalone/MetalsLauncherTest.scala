@@ -17,7 +17,7 @@ class MetalsLauncherTest extends FunSuite {
         if (Files.isDirectory(path)) {
           Files.list(path).forEach(deleteRecursively)
         }
-        Files.deleteIfExists(path)
+        val _ = Files.deleteIfExists(path)
       }
       deleteRecursively(dir)
     }
@@ -105,9 +105,9 @@ class MetalsLauncherTest extends FunSuite {
       val installation = Sync.Unsafe.evalOrThrow(launcher.findMetalsInstallation())
       // We can't assert None because the system might have metals installed
       // Just verify the method doesn't crash
-      assert(installation.isDefined || installation.isEmpty)
+      assert(installation.isDefined || installation.isEmpty, "installation Option should be safe to access")
     } finally {
-      Files.deleteIfExists(tempDir)
+      val _ = Files.deleteIfExists(tempDir)
     }
   }
   
@@ -127,7 +127,7 @@ class MetalsLauncherTest extends FunSuite {
       assert(jar.isInstanceOf[launcher.MetalsInstallation], "jar should be MetalsInstallation")
       assert(direct.isInstanceOf[launcher.MetalsInstallation], "direct should be MetalsInstallation")
     } finally {
-      Files.deleteIfExists(tempDir)
+      val _ = Files.deleteIfExists(tempDir)
     }
   }
 }

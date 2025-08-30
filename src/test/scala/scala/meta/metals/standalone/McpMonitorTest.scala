@@ -17,7 +17,7 @@ class McpMonitorTest extends FunSuite:
       def deleteRecursively(path: Path): Unit =
         if Files.isDirectory(path) then
           Files.list(path).forEach(deleteRecursively)
-        Files.deleteIfExists(path)
+        val _ = Files.deleteIfExists(path)
 
       deleteRecursively(dir)
     }

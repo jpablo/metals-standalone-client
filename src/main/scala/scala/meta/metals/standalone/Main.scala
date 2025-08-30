@@ -104,7 +104,7 @@ class MetalsLight(projectPath: Path, verbose: Boolean):
 
   implicit private val ec: ExecutionContext = ExecutionContext.global
 
-  private var launcher: Option[MetalsLauncher]   = None
+  private var launcher: Option[MetalsLauncherK]  = None
   private var lspClient: Option[LspClient]       = None
   private var metalsClient: Option[MetalsClient] = None
 
@@ -112,16 +112,18 @@ class MetalsLight(projectPath: Path, verbose: Boolean):
     try
       logger.info("🚀 Starting Metals standalone MCP client...")
 
-      val metalsLauncher = new MetalsLauncher(projectPath)
+      val metalsLauncher = new MetalsLauncherK(projectPath)
       launcher = Some(metalsLauncher)
 
-      if !metalsLauncher.validateProject() then
+      import kyo.Sync
+      import kyo.AllowUnsafe.embrace.danger
+      if !Sync.Unsafe.evalOrThrow(metalsLauncher.validateProject()) then
         logger.severe("❌ Project validation failed")
         return 1
 
       logger.info("📦 Launching Metals language server...")
-      val process = metalsLauncher.launchMetals() match
-        case Some(p) => p
+      val process = Sync.Unsafe.evalOrThrow(metalsLauncher.launchMetals()) match
+        case Some(p) => new KyoProcessAdapter(p)
         case None    =>
           logger.severe("❌ Failed to launch Metals")
           return 1
@@ -205,7 +207,9 @@ class MetalsLight(projectPath: Path, verbose: Boolean):
 
     launcher.foreach { launcher =>
       try
-        launcher.shutdown()
+        import kyo.Sync
+        import kyo.AllowUnsafe.embrace.danger
+        Sync.Unsafe.evalOrThrow(launcher.shutdown())
         logger.info("✅ Metals process shutdown")
       catch
         case e: Exception =>

@@ -3,6 +3,7 @@ package scala.meta.metals.standalone
 import java.nio.file.{Path, Paths}
 import kyo.*
 import kyo.Log
+import java.util.logging.{Logger as JULLogger, Level as JULLevel}
 
 /** Main entry point for the standalone Metals MCP client.
   *
@@ -19,9 +20,18 @@ object Main extends kyo.KyoApp:
   run {
     import kyo.*
     val config = parseArgs(args.toArray)
-    val level  = if config.verbose then Log.Level.debug else Log.Level.info
-    Log.withConsoleLogger("metals-standalone", level) {
-      new MetalsLightK(config.projectPath, config.verbose).run()
+    val logName = "metals-standalone"
+    // Configure Java Platform Logging (JUL) levels to match verbosity
+    val juLevel = if config.verbose then JULLevel.FINE else JULLevel.INFO
+    val root    = JULLogger.getLogger("")
+    root.setLevel(juLevel)
+    root.getHandlers.foreach(_.setLevel(juLevel))
+    JULLogger.getLogger(logName).setLevel(juLevel)
+
+    // Use Kyo console logger at the chosen level
+    val level = if config.verbose then Log.Level.debug else Log.Level.info
+    Log.withConsoleLogger(logName, level) {
+      new MetalsLight(config.projectPath, config.verbose).run()
     }
   }
 

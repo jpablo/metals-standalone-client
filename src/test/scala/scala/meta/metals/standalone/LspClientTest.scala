@@ -34,14 +34,14 @@ class LspClientTest extends FunSuite:
 
   test("LspClientK can be instantiated"):
     val mockProcess = new MockProcess()
-    val client      = new LspClientK(mockProcess)
+    val client      = new LspClient(mockProcess)
     assert(client != null, "client should be constructed")
 
   test("sendNotification creates proper JSON-RPC notification (Kyo)"):
     import kyo.AllowUnsafe.embrace.danger
     val outputStream = new ByteArrayOutputStream()
     val mockProcess  = new MockProcess(outputStream = outputStream)
-    val client       = new LspClientK(mockProcess)
+    val client       = new LspClient(mockProcess)
 
     val params = Json.obj("test" -> "value".asJson)
     Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(1.second)(client.sendNotification("test/notification", Some(params))))
@@ -56,7 +56,7 @@ class LspClientTest extends FunSuite:
     import kyo.AllowUnsafe.embrace.danger
     val outputStream = new ByteArrayOutputStream()
     val mockProcess  = new MockProcess(outputStream = outputStream)
-    val client       = new LspClientK(mockProcess)
+    val client       = new LspClient(mockProcess)
 
     Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(1.second)(client.sendNotification("test/notification", None)))
 
@@ -81,7 +81,7 @@ class LspClientTest extends FunSuite:
       createLspMessage(showMessageContent).getBytes(StandardCharsets.UTF_8)
     )
     val mockProcess = new MockProcess(inputStream = inputStream)
-    val client      = new LspClientK(mockProcess)
+    val client      = new LspClient(mockProcess)
 
     Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(1.second)(client.start()))
     Thread.sleep(100)
@@ -99,7 +99,7 @@ class LspClientTest extends FunSuite:
     val inputStream  = new ByteArrayInputStream(createLspMessage(responseContent).getBytes(StandardCharsets.UTF_8))
     val outputStream = new ByteArrayOutputStream()
     val mockProcess  = new MockProcess(inputStream = inputStream, outputStream = outputStream)
-    val client       = new LspClientK(mockProcess)
+    val client       = new LspClient(mockProcess)
 
     // Start reader
     Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(1.second)(client.start()))
@@ -111,7 +111,7 @@ class LspClientTest extends FunSuite:
     import kyo.AllowUnsafe.embrace.danger
     val outputStream = new ByteArrayOutputStream()
     val mockProcess  = new MockProcess(outputStream = outputStream)
-    val client       = new LspClientK(mockProcess)
+    val client       = new LspClient(mockProcess)
 
     Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(1.second)(client.sendNotification("shutdown", None)))
     val output = outputStream.toString(StandardCharsets.UTF_8.name())

@@ -9,7 +9,7 @@ import kyo.Log
 /** Kyo-based Metals language client orchestrator.
   * Minimal port of MetalsClient to work with LspClientK.
   */
-class MetalsClientK(projectPath: Path, lspClient: LspClientK)(using Frame):
+class MetalsClient(projectPath: Path, lspClient: LspClient)(using Frame):
 
   @volatile private var initialized = false
 

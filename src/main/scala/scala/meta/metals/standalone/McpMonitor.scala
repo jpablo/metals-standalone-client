@@ -10,7 +10,7 @@ import scala.concurrent.duration.*
 import java.nio.file.{Files, Path}
 
 /** Kyo port of McpMonitor: discovers MCP config and waits for the server to be healthy. */
-class McpMonitorK(projectPath: Path)(using Frame):
+class McpMonitor(projectPath: Path)(using Frame):
   // Logging via kyo.Log
 
   private val configPaths = Seq(

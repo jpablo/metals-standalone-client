@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger
   * Exposes effectful APIs using Kyo. Intended to be adopted incrementally alongside the
   * original Future-based LspClient.
   */
-class LspClientK(process: java.lang.Process)(using Frame):
+class LspClient(process: java.lang.Process)(using Frame):
 
   private val requestId       = new AtomicInteger(0)
   private val pendingRequests = new ConcurrentHashMap[Int, java.util.concurrent.CompletableFuture[Json]]()

@@ -13,7 +13,7 @@ import scala.util.Try
   * access in Sync effects. API mirrors the original MetalsLauncher where practical, but
   * returns Kyo effects instead of performing side effects eagerly.
   */
-class MetalsLauncherK(projectPath: Path):
+class MetalsLauncher(projectPath: Path):
 
   /** Track the spawned Metals process (Kyo wrapper) for shutdown. */
   @volatile private var metalsProcess: Option[KyoProcess] = None

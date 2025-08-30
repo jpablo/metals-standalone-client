@@ -12,10 +12,10 @@ import scala.concurrent.ExecutionContext
   * Sync.Unsafe for MetalsLauncherK. It reuses the existing Future-based LSP/Metals
   * clients by bridging with Async.fromFuture.
   */
-class MetalsLightK(projectPath: Path, verbose: Boolean):
-  private val launcher                               = new MetalsLauncherK(projectPath)
-  private var lspClientK: Option[LspClientK]         = None
-  private var metalsClientK: Option[MetalsClientK]   = None
+class MetalsLight(projectPath: Path, verbose: Boolean):
+  private val launcher                               = new MetalsLauncher(projectPath)
+  private var lspClientK: Option[LspClient]         = None
+  private var metalsClientK: Option[MetalsClient]   = None
   implicit private val ec: ExecutionContext      = ExecutionContext.global
 
   private def requireSome[A](opt: Option[A], msg: String)(using Frame): A < (Sync & Abort[Throwable]) =
@@ -47,14 +47,14 @@ class MetalsLightK(projectPath: Path, verbose: Boolean):
         .andThen(launcher.launchMetals().flatMap(opt => requireSome(opt, "❌ Failed to launch Metals")))
         .flatMap { proc =>
           val jproc = new KyoProcessAdapter(proc)
-          val lspK  = new LspClientK(jproc)
+          val lspK  = new LspClient(jproc)
           lspClientK = Some(lspK)
 
           lspK
             .start()
             .andThen(Log.info("🔗 Connected to Metals LSP server"))
             .andThen {
-              val metalsK = new MetalsClientK(projectPath, lspK)
+              val metalsK = new MetalsClient(projectPath, lspK)
               metalsClientK = Some(metalsK)
               metalsK
                 .initialize()
@@ -63,7 +63,7 @@ class MetalsLightK(projectPath: Path, verbose: Boolean):
                   else Log.error("❌ Failed to initialize Metals").andThen(Abort.fail(new RuntimeException("init failed")))
                 }
                 .andThen {
-                  val monitorK = new McpMonitorK(projectPath)
+                  val monitorK = new McpMonitor(projectPath)
                   Log.info("⏳ Waiting for MCP server to start...")
                     .andThen(monitorK.waitForMcpServer())
                     .flatMap(opt => requireSome(opt, "❌ MCP server failed to start"))

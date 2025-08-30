@@ -3,37 +3,39 @@ package scala.meta.metals.standalone
 import io.circe.*
 import io.circe.parser.*
 import io.circe.syntax.*
-import kyo.*
-import kyo.AllowUnsafe.embrace.danger
-import kyo.Log
 
 import java.io.{OutputStreamWriter, PrintWriter}
 import java.nio.charset.StandardCharsets
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.CompletableFuture
+import java.util.concurrent.{ConcurrentHashMap, ExecutorService, Executors}
+import java.util.logging.Logger
+import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.util.{Failure, Success, Try}
 
-/** Kyo-based LSP client for communicating with Metals over JSON-RPC 2.0 (stdin/stdout).
-  *
-  * Exposes effectful APIs using Kyo. Intended to be adopted incrementally alongside the
-  * original Future-based LspClient.
+/** Minimal LSP client for communicating with Metals language server. Implements JSON-RPC 2.0 protocol over
+  * stdin/stdout.
   */
-class LspClient(process: java.lang.Process)(using Frame):
-
-  private val debugIo = sys.props.get("LSP_DEBUG_IO").isDefined
+class LspClient(process: Process)(using ExecutionContext):
+  private val logger = Logger.getLogger(classOf[LspClient].getName)
 
   private val requestId       = new AtomicInteger(0)
-  private val pendingRequests = new ConcurrentHashMap[Int, CompletableFuture[Json]]()
+  private val pendingRequests = new ConcurrentHashMap[Int, Promise[Json]]()
   private val messageHandlers = new ConcurrentHashMap[String, Json => Option[Json]]()
 
   private val stdin  = new PrintWriter(new OutputStreamWriter(process.getOutputStream, StandardCharsets.UTF_8), true)
   private val stdout = process.getInputStream
 
-  @volatile private var shutdownRequested = false
+  @volatile private var shutdownRequested     = false
+  private val readerExecutor: ExecutorService = Executors.newSingleThreadExecutor(r =>
+    val thread = new Thread(r, "lsp-reader")
+    thread.setDaemon(true)
+    thread
+  )
 
   setupMessageHandlers()
 
   private def setupMessageHandlers(): Unit =
+    // Handle notifications and requests from server
     registerHandler("window/showMessage", handleShowMessage)
     registerHandler("window/showMessageRequest", handleShowMessageRequest)
     registerHandler("window/logMessage", handleLogMessage)
@@ -48,141 +50,166 @@ class LspClient(process: java.lang.Process)(using Frame):
     registerHandler("workspace/configuration", handleConfiguration)
 
   private def registerHandler(method: String, handler: Json => Option[Json]): Unit =
-    val _ = messageHandlers.put(method, handler)
+    messageHandlers.put(method, handler): Unit
 
-  def start(): Unit < Sync =
-    Log.info("Starting Kyo LSP client message reader...").andThen {
-      Sync.defer {
-        val runnable = new Runnable {
-          override def run(): Unit =
-            // Run the async reader to completion within this thread
-            kyo.Sync.Unsafe.evalOrThrow(kyo.KyoApp.runAndBlock(kyo.Duration.Infinity)(readMessages()))
-        }
-        val t = new Thread(runnable, "lsp-reader-kyo")
-        t.setDaemon(true)
-        t.start()
-        ()
-      }
-    }
+  def start(): Future[Unit] =
+    val promise = Promise[Unit]()
+    logger.info("Starting LSP client message reader...")
 
-  private def readMessages(): Unit < (Async & Sync) =
-    Sync.defer {
-      val sb = new StringBuilder
-      var continue = true
-      while !shutdownRequested && process.isAlive() && continue do
-        val bytes    = new Array[Byte](4096)
+    readerExecutor.submit(
+      new Runnable:
+        def run(): Unit =
+          logger.info("LSP message reader thread started")
+          promise.success(())
+          readMessages()
+    )
+
+    promise.future
+
+  private def readMessages(): Unit =
+    var buffer = ""
+    logger.info("Starting to read messages from Metals process...")
+
+    try
+      var shouldContinue = true
+      while !shutdownRequested && process.isAlive && shouldContinue do
+        // Read available data in chunks
+        val bytes     = new Array[Byte](4096)
         val bytesRead = stdout.read(bytes)
+
         if bytesRead == -1 then
-          Sync.Unsafe.evalOrThrow(logEndOfStream())
-          shutdownRequested = true
-          continue = false
+          logger.warning("End of stream from Metals process")
+          shouldContinue = false
         else if bytesRead == 0 then Thread.sleep(10)
-        else sb.append(new String(bytes, 0, bytesRead, StandardCharsets.UTF_8))
+        else
+          val data = new String(bytes, 0, bytesRead, StandardCharsets.UTF_8)
+          buffer += data
 
-        var processMore = true
-        while processMore && sb.indexOf("\r\n\r\n") >= 0 do
-          val headerEnd = sb.indexOf("\r\n\r\n")
-          val header    = sb.substring(0, headerEnd)
-          // remove header from buffer
-          sb.delete(0, headerEnd + 4)
+          // Process complete messages
+          var processMessages = true
+          while buffer.contains("\r\n\r\n") && processMessages do
+            val headerEnd = buffer.indexOf("\r\n\r\n")
+            val header    = buffer.substring(0, headerEnd)
+            buffer = buffer.substring(headerEnd + 4)
 
-          var contentLength = 0
-          header.split("\r\n").foreach { line =>
-            if line.startsWith("Content-Length:") then contentLength = line.split(":")(1).trim.toInt
-          }
+            // Parse content length from header
+            var contentLength = 0
+            for line <- header.split("\r\n") do
+              if line.startsWith("Content-Length:") then contentLength = line.split(":")(1).trim.toInt
 
-          if contentLength > 0 then
-            var haveBody = sb.length >= contentLength
-            while !haveBody && !shutdownRequested && process.isAlive() && continue do
-              val need      = contentLength - sb.length
-              val moreBytes = new Array[Byte](math.min(need, 4096))
-              val r         = stdout.read(moreBytes)
-              if r == -1 then
-                Sync.Unsafe.evalOrThrow(logEndOfStream())
-                shutdownRequested = true
-                continue = false
-                processMore = false
-              else if r == 0 then Thread.sleep(10)
-              else sb.append(new String(moreBytes, 0, r, StandardCharsets.UTF_8))
-              haveBody = sb.length >= contentLength
+            if contentLength > 0 then
+              // Wait for complete message body
+              var readingBody = true
+              while buffer.length < contentLength && readingBody do
+                val needed        = contentLength - buffer.length
+                val moreBytes     = new Array[Byte](math.min(needed, 4096))
+                val moreBytesRead = stdout.read(moreBytes)
 
-            if sb.length >= contentLength then
-              val messageJson = sb.substring(0, contentLength)
-              sb.delete(0, contentLength)
-              // Handle synchronously
-              Sync.Unsafe.evalOrThrow(handleRawMessage(messageJson))
-            else
-              // incomplete; prepend header back for next round
-              sb.insert(0, header + "\r\n\r\n")
-              processMore = false
-          else
-            // header without content length; skip
-            ()
-    }
+                if moreBytesRead == -1 then
+                  logger.warning("Unexpected end of stream while reading message body")
+                  readingBody = false
+                  processMessages = false
+                  shouldContinue = false
+                else if moreBytesRead == 0 then Thread.sleep(10)
+                else
+                  val moreData = new String(moreBytes, 0, moreBytesRead, StandardCharsets.UTF_8)
+                  buffer += moreData
 
-  private def handleRawMessage(messageJson: String): Unit < Sync =
-    val preview = messageJson.take(200) + (if messageJson.length > 200 then "..." else "")
-    if debugIo then java.lang.System.err.println(s"<<< $preview")
-    Log.info(s"Parsing LSP message: $preview").andThen {
-      parse(messageJson) match
-        case Right(json) => Sync.defer { handleMessage(json); () }
-        case Left(error) =>
-          Log.error(s"Failed to parse JSON message: $error").andThen(Log.info(s"Raw message: $messageJson"))
-    }
+              if buffer.length >= contentLength then
+                val messageJson = buffer.substring(0, contentLength)
+                buffer = buffer.substring(contentLength)
+
+                logger.info(s"Raw LSP message received (length: $contentLength): $messageJson")
+                parseAndHandleMessage(messageJson)
+    catch
+      case e: Exception if !shutdownRequested =>
+        logger.severe(s"Error reading messages: ${e.getMessage}")
+
+  private def parseAndHandleMessage(messageJson: String): Unit =
+    logger.info(s"Parsing LSP message: ${messageJson.take(200)}${if messageJson.length > 200 then "..." else ""}")
+    parse(messageJson) match
+      case Right(json) =>
+        logger.info("Successfully parsed LSP message")
+        handleMessage(json)
+      case Left(error) =>
+        logger.severe(s"Failed to parse JSON message: $error")
+        logger.info(s"Raw message: $messageJson")
 
   private def handleMessage(message: Json): Unit =
     val cursor = message.hcursor
-    // Response to a client-initiated request
+
+    logger.info(s"Processing message: ${message.noSpaces.take(100)}...")
+
+    // Check if this is a response to our request
     cursor.downField("id").as[Int] match
       case Right(id) if pendingRequests.containsKey(id) =>
+        logger.info(s"Received LSP response for request id: $id")
         val promise = pendingRequests.remove(id)
         cursor.downField("result").as[Json] match
-          case Right(result) => val _ = promise.complete(result)
+          case Right(result) =>
+            logger.info(s"LSP request $id completed successfully")
+            logger.info(s"Response result: ${result.noSpaces.take(200)}...")
+            promise.success(result)
           case Left(_)       =>
             cursor.downField("error").as[Json] match
-              case Right(error) => val _ = promise.completeExceptionally(new RuntimeException(s"LSP error: $error"))
-              case Left(_)      => val _ = promise.completeExceptionally(new RuntimeException("Invalid LSP response"))
+              case Right(error) =>
+                logger.severe(s"LSP request $id failed with error: $error")
+                promise.failure(new RuntimeException(s"LSP error: $error"))
+              case Left(_)      =>
+                logger.severe(s"LSP request $id failed - invalid response format")
+                logger.severe(s"Raw response: ${message.noSpaces}")
+                promise.failure(new RuntimeException("Invalid LSP response"))
+
       case _ =>
-        // Notification or server-initiated request
+        // This is a notification or request from server
         cursor.downField("method").as[String] match
           case Right(method) =>
             val params = cursor.downField("params").as[Json].getOrElse(Json.Null)
+
             Option(messageHandlers.get(method)) match
               case Some(handler) =>
                 try
                   val result = handler(params)
-                  // If there's an id, it's a request: send a response
+
+                  // If this is a request (has id), send response
                   cursor.downField("id").as[Int] match
                     case Right(msgId) =>
                       result match
                         case Some(responseData) => sendResponse(msgId, responseData)
                         case None               => sendResponse(msgId, Json.Null)
-                    case Left(_)      => () // notification: no response
+                    case Left(_)      => // This is a notification, no response needed
                 catch
                   case e: Exception =>
+                    logger.severe(s"Error handling $method: ${e.getMessage}")
                     cursor.downField("id").as[Int] match
                       case Right(msgId) => sendErrorResponse(msgId, e.getMessage)
-                      case Left(_)      => ()
-              case None =>
+                      case Left(_)      => // Notification, can't send error response
+              case None          =>
+                logger.warning(s"Unhandled LSP method: $method")
+                logger.info(s"Unhandled method params: $params")
+                // Check if this is a request (has id) that needs a response
                 cursor.downField("id").as[Int] match
                   case Right(msgId) =>
+                    logger.warning(s"Unhandled method $method is a request (id: $msgId) - sending empty response")
                     sendResponse(msgId, Json.Null)
-                  case Left(_) => () // notification: ignore
-          case Left(_) => ()
+                  case Left(_)      =>
+                    logger.info(s"Unhandled method $method is a notification - no response needed")
 
-  private def sendMessage(message: Json): Unit < Sync =
-    Sync.defer {
-      val messageStr   = message.noSpaces
-      val messageBytes = messageStr.getBytes(StandardCharsets.UTF_8)
-      val header       = s"Content-Length: ${messageBytes.length}\r\n\r\n"
-      try
-        if debugIo then java.lang.System.err.println(s">>> ${messageStr.take(200)}${if messageStr.length > 200 then "..." else ""}")
-        stdin.print(header)
-        stdin.print(messageStr)
-        stdin.flush()
-      catch
-        case e: Exception => Log.error(s"Failed to send message: ${e.getMessage}")
-    }
+          case Left(_) =>
+            logger.warning(s"Message without method: $message")
+
+  private def sendMessage(message: Json): Unit =
+    val messageStr   = message.noSpaces
+    val messageBytes = messageStr.getBytes(StandardCharsets.UTF_8)
+    val header       = s"Content-Length: ${messageBytes.length}\r\n\r\n"
+
+    try
+      stdin.print(header)
+      stdin.print(messageStr)
+      stdin.flush()
+    catch
+      case e: Exception =>
+        logger.severe(s"Failed to send message: ${e.getMessage}")
 
   private def sendResponse(messageId: Int, result: Json): Unit =
     val response = Json.obj(
@@ -190,23 +217,24 @@ class LspClient(process: java.lang.Process)(using Frame):
       "id"      -> messageId.asJson,
       "result"  -> result
     )
-    // Fire and forget in Sync
-    Sync.Unsafe.evalOrThrow(sendMessage(response))
+    sendMessage(response)
 
   private def sendErrorResponse(messageId: Int, error: String): Unit =
     val response = Json.obj(
       "jsonrpc" -> "2.0".asJson,
       "id"      -> messageId.asJson,
       "error"   -> Json.obj(
-        "code"    -> (-32603).asJson, // Internal error
+        "code"    -> -32603.asJson, // Internal error
         "message" -> error.asJson
       )
     )
-    Sync.Unsafe.evalOrThrow(sendMessage(response))
+    sendMessage(response)
 
-  def sendRequest(method: String, params: Option[Json] = None): Json < (Async & Sync) =
+  def sendRequest(method: String, params: Option[Json] = None): Future[Json] =
     val id      = requestId.incrementAndGet()
-    val promise = new CompletableFuture[Json]()
+    val promise = Promise[Json]()
+
+    logger.info(s"Sending LSP request: $method (id: $id)")
     pendingRequests.put(id, promise)
 
     val request = Json.obj(
@@ -217,12 +245,13 @@ class LspClient(process: java.lang.Process)(using Frame):
       case Some(p) => Json.obj("params" -> p)
       case None    => Json.obj()
     )
-    for
-      _ <- sendMessage(request)
-      r <- Async.fromFuture(promise)
-    yield r
 
-  def sendNotification(method: String, params: Option[Json] = None): Unit < Sync =
+    logger.info(s"LSP request JSON: ${request.noSpaces}")
+    sendMessage(request)
+    logger.info(s"LSP request sent: $method (id: $id)")
+    promise.future
+
+  def sendNotification(method: String, params: Option[Json] = None): Unit =
     val notification = Json.obj(
       "jsonrpc" -> "2.0".asJson,
       "method"  -> method.asJson
@@ -230,31 +259,99 @@ class LspClient(process: java.lang.Process)(using Frame):
       case Some(p) => Json.obj("params" -> p)
       case None    => Json.obj()
     )
+
     sendMessage(notification)
 
-  // Handlers (minimal Metals language client)
-  private def handleShowMessage(params: Json): Option[Json] = None
+  // Message handlers (implementing minimal MetalsLanguageClient interface)
+
+  private def handleShowMessage(params: Json): Option[Json] =
+    val cursor      = params.hcursor
+    val messageType = cursor.downField("type").as[Int].getOrElse(1)
+    val message     = cursor.downField("message").as[String].getOrElse("")
+
+    val typeName = messageType match
+      case 1 => "ERROR"
+      case 2 => "WARN"
+      case 3 => "INFO"
+      case 4 => "LOG"
+      case _ => "UNKNOWN"
+
+    logger.info(s"[$typeName] $message")
+    None
 
   private def handleShowMessageRequest(params: Json): Option[Json] =
-    val actions = params.hcursor.downField("actions").as[List[Json]].getOrElse(Nil)
-    if actions.nonEmpty then Some(actions.head) else Some(Json.Null)
+    val cursor      = params.hcursor
+    val messageType = cursor.downField("type").as[Int].getOrElse(1)
+    val message     = cursor.downField("message").as[String].getOrElse("")
+    val actions     = cursor.downField("actions").as[List[Json]].getOrElse(Nil)
 
-  private def handleLogMessage(params: Json): Option[Json] = None
+    val typeName = messageType match
+      case 1 => "ERROR"
+      case 2 => "WARN"
+      case 3 => "INFO"
+      case 4 => "LOG"
+      case _ => "UNKNOWN"
 
-  private def handlePublishDiagnostics(params: Json): Option[Json] = None
-  private def handleApplyEdit(_params: Json): Option[Json] = Some(Json.obj("applied" -> true.asJson))
-  private def handleMetalsStatus(params: Json): Option[Json] = None
+    logger.info(s"[$typeName] $message")
 
-  private def handleExecuteClientCommand(params: Json): Option[Json] = None
+    // Auto-select the first action for headless operation
+    if actions.nonEmpty then
+      val selectedAction = actions.head
+      val actionTitle    = selectedAction.hcursor.downField("title").as[String].getOrElse("Unknown")
+      logger.info(s"Auto-selecting action: $actionTitle")
+      Some(selectedAction)
+    else Some(Json.Null)
 
-  private def handleRegisterCapability(_params: Json): Option[Json] = Some(Json.Null)
-  private def handleUnregisterCapability(_params: Json): Option[Json] = Some(Json.Null)
-  private def handleProgressCreate(_params: Json): Option[Json] = Some(Json.Null)
-  private def handleProgress(params: Json): Option[Json] = None
+  private def handleLogMessage(params: Json): Option[Json] =
+    val cursor      = params.hcursor
+    val messageType = cursor.downField("type").as[Int].getOrElse(1)
+    val message     = cursor.downField("message").as[String].getOrElse("")
+
+    if messageType <= 2 then // Error or Warning
+      logger.warning(s"Metals: $message")
+    else logger.info(s"Metals: $message")
+    None
+
+  private def handlePublishDiagnostics(params: Json): Option[Json] =
+    val cursor      = params.hcursor
+    val uri         = cursor.downField("uri").as[String].getOrElse("")
+    val diagnostics = cursor.downField("diagnostics").as[List[Json]].getOrElse(Nil)
+
+    if diagnostics.nonEmpty then logger.info(s"Diagnostics for $uri: ${diagnostics.length} issues")
+    None
+
+  private def handleApplyEdit(_params: Json): Option[Json] =
+    // Just return success - we're not actually applying edits
+    Some(Json.obj("applied" -> true.asJson))
+
+  private def handleMetalsStatus(params: Json): Option[Json] =
+    val text = params.hcursor.downField("text").as[String].getOrElse("")
+    if text.nonEmpty then logger.info(s"Metals status: $text")
+    None
+
+  private def handleExecuteClientCommand(params: Json): Option[Json] =
+    val command = params.hcursor.downField("command").as[String].getOrElse("")
+    logger.info(s"Client command: $command")
+    None
+
+  private def handleRegisterCapability(_params: Json): Option[Json] =
+    Some(Json.Null)
+
+  private def handleUnregisterCapability(_params: Json): Option[Json] =
+    Some(Json.Null)
+
+  private def handleProgressCreate(_params: Json): Option[Json] =
+    Some(Json.Null)
+
+  private def handleProgress(params: Json): Option[Json] =
+    // Ignore progress notifications
+    None
 
   private def handleConfiguration(params: Json): Option[Json] =
     val cursor = params.hcursor
     val items  = cursor.downField("items").as[List[Json]].getOrElse(Nil)
+
+    // Return configuration for metals
     val configs = items.map { item =>
       val section = item.hcursor.downField("section").as[String].getOrElse("")
       if section == "metals" then
@@ -269,27 +366,37 @@ class LspClient(process: java.lang.Process)(using Frame):
         )
       else Json.obj()
     }
+
     Some(configs.asJson)
 
-  def shutdown(): Unit < (Async & Sync) =
-    for
-      _ <- sendRequest("shutdown").map(_ => ())
-      _ <- sendNotification("exit")
-      _ <- Sync.defer {
-        shutdownRequested = true
-        try stdin.close() finally stdout.close()
-        ()
-      }
-      _ <- Sync.defer {
-        // Align with main: terminate the process gracefully, then forcibly
-        try process.destroy() finally ()
-        Thread.sleep(1000)
-        if process.isAlive() then process.destroyForcibly() else ()
-        ()
-      }
-    yield ()
-  private def logEndOfStream(): Unit < Sync =
-    if sys.props.get("LSP_TEST_QUIET").isDefined then
-      Log.debug("End of stream from Metals process")
-    else
-      Log.warn("End of stream from Metals process")
+  def shutdown(): Future[Json] =
+    shutdownRequested = true
+    sendRequest("shutdown").andThen {
+      case Success(_) =>
+        sendNotification("exit")
+
+        // Close streams and terminate process
+        Try {
+          stdin.close()
+          stdout.close()
+        }: Unit
+
+        readerExecutor.shutdown()
+
+        if process.isAlive then
+          process.destroy()
+          // Give it a moment for graceful shutdown
+          Thread.sleep(1000)
+          if process.isAlive then process.destroyForcibly(): Unit
+
+      case Failure(e) =>
+        logger.warning(s"Shutdown request failed: ${e.getMessage}")
+        // Force shutdown anyway
+        Try {
+          stdin.close()
+          stdout.close()
+        }: Unit
+
+        readerExecutor.shutdown()
+        process.destroyForcibly()
+    }

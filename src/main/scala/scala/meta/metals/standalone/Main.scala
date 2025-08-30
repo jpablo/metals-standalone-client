@@ -9,7 +9,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * This application launches Metals language server in minimal mode and enables the MCP server for AI assistant
   * integration without requiring a full IDE client like VS Code or Cursor.
   */
-object Main:
+object Main extends kyo.KyoApp:
   private val logger = Logger.getLogger(Main.getClass.getName)
 
   case class Config(
@@ -17,19 +17,15 @@ object Main:
       verbose: Boolean = false
   )
 
-  def main(args: Array[String]): Unit =
-    val config = parseArgs(args)
-    setupLogging(config.verbose)
-
-    val app = new MetalsLight(config.projectPath, config.verbose)
-
-    sys.addShutdownHook {
-      logger.info("\nShutting down...")
-      app.shutdown()
-    }
-
-    val exitCode = app.run()
-    sys.exit(exitCode)
+  run {
+    import kyo.*
+    val config = parseArgs(args.toArray)
+    for
+      _ <- Sync.defer(setupLogging(config.verbose))
+      // Run the Kyo-native Metals flow
+      _ <- new MetalsLightK(config.projectPath, config.verbose).run()
+    yield ()
+  }
 
   private def parseArgs(args: Array[String]): Config =
     args.toList match

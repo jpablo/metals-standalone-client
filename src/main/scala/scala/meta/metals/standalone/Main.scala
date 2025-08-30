@@ -1,7 +1,8 @@
 package scala.meta.metals.standalone
 
 import java.nio.file.{Path, Paths}
-import java.util.logging.{ConsoleHandler, Level, Logger, SimpleFormatter}
+import kyo.*
+import kyo.Log
 
 /** Main entry point for the standalone Metals MCP client.
   *
@@ -9,7 +10,6 @@ import java.util.logging.{ConsoleHandler, Level, Logger, SimpleFormatter}
   * integration without requiring a full IDE client like VS Code or Cursor.
   */
 object Main extends kyo.KyoApp:
-  private val logger = Logger.getLogger(Main.getClass.getName)
 
   case class Config(
       projectPath: Path = Paths.get(".").toAbsolutePath.normalize(),
@@ -19,11 +19,10 @@ object Main extends kyo.KyoApp:
   run {
     import kyo.*
     val config = parseArgs(args.toArray)
-    for
-      _ <- Sync.defer(setupLogging(config.verbose))
-      // Run the Kyo-native Metals flow
-      _ <- new MetalsLightK(config.projectPath, config.verbose).run()
-    yield ()
+    val level  = if config.verbose then Log.Level.debug else Log.Level.info
+    Log.withConsoleLogger("metals-standalone", level) {
+      new MetalsLightK(config.projectPath, config.verbose).run()
+    }
   }
 
   private def parseArgs(args: Array[String]): Config =
@@ -45,12 +44,12 @@ object Main extends kyo.KyoApp:
       case path :: Nil                      =>
         Config(Paths.get(path).toAbsolutePath.normalize())
       case invalid                          =>
-        logger.severe(s"Error: Invalid arguments: ${invalid.mkString(" ")}")
+        scala.Console.err.println(s"Error: Invalid arguments: ${invalid.mkString(" ")}")
         printUsage()
         sys.exit(1)
 
   private def printUsage(): Unit =
-    logger.info("""
+    println("""
                   |Metals Standalone MCP Client
                   |
                   |Usage: metals-standalone-client [OPTIONS] [PROJECT_PATH]
@@ -72,22 +71,3 @@ object Main extends kyo.KyoApp:
                   |This tool starts Metals language server with MCP server enabled,
                   |allowing AI assistants to interact with your Scala project.
                   |""".stripMargin)
-
-  private def setupLogging(verbose: Boolean): Unit =
-    val rootLogger = Logger.getLogger("")
-    rootLogger.setLevel(if verbose then Level.INFO else Level.WARNING)
-
-    rootLogger.getHandlers.foreach(rootLogger.removeHandler)
-
-    val handler = new ConsoleHandler():
-      setOutputStream(System.out)
-
-    handler.setLevel(if verbose then Level.INFO else Level.WARNING)
-    handler.setFormatter(
-      new SimpleFormatter():
-        override def format(record: java.util.logging.LogRecord): String =
-          if verbose then s"[${record.getLevel}] ${record.getMessage}\n"
-          else s"${record.getMessage}\n"
-    )
-
-    rootLogger.addHandler(handler)

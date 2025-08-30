@@ -7,7 +7,7 @@ import kyo.AllowUnsafe.embrace.danger
 import java.io.{InputStream, OutputStream}
 
 /** Adapts a kyo.Process to a java.lang.Process so existing code that depends on
-  * java.lang.Process (e.g., LspClient) can continue to work without changes.
+  * java.lang.Process (e.g., LspClientK) can continue to work without changes.
   */
 class KyoProcessAdapter(private val kp: KyoProcess) extends java.lang.Process:
   override def getOutputStream: OutputStream = kp.stdin

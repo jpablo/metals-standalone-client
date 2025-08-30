@@ -8,7 +8,6 @@ import java.io.{ByteArrayInputStream, ByteArrayOutputStream, InputStream}
 import java.nio.charset.StandardCharsets
 import kyo.*
 import scala.concurrent.ExecutionContext
-import scala.concurrent.duration.*
 
 class LspClientTest extends FunSuite:
 

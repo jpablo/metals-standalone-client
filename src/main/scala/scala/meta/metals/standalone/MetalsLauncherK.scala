@@ -2,9 +2,9 @@ package scala.meta.metals.standalone
 
 import kyo.*
 import kyo.Process as KyoProcess
+import kyo.Log
 
 import java.nio.file.{Files, Path, Paths}
-import java.util.logging.Logger
 import scala.util.Try
 
 /** Kyo-based port of MetalsLauncher.
@@ -14,7 +14,6 @@ import scala.util.Try
   * returns Kyo effects instead of performing side effects eagerly.
   */
 class MetalsLauncherK(projectPath: Path):
-  private val logger = Logger.getLogger(classOf[MetalsLauncherK].getName)
 
   /** Track the spawned Metals process (Kyo wrapper) for shutdown. */
   @volatile private var metalsProcess: Option[KyoProcess] = None
@@ -42,14 +41,14 @@ class MetalsLauncherK(projectPath: Path):
         case None        => findExecutable("coursier")
       res <- maybeCr match
         case Some(cs) =>
-          Sync.defer(logger.info("Attempting to fetch Metals classpath via Coursier..."))
+          Log.info("Attempting to fetch Metals classpath via Coursier...")
             .andThen {
               val cmd = KyoProcess.Command(cs, "fetch", "--classpath", "org.scalameta:metals_2.13:1.6.0")
               cmd.text.map(_.trim).flatMap { cp =>
                 if cp.nonEmpty then
                   findJavaExecutable().map(_.map(j => MetalsInstallation.CoursierInstallation(j, cp)))
                 else
-                  Sync.defer { logger.warning("Empty classpath returned from coursier"); None }
+                  Log.warn("Empty classpath returned from coursier").andThen(Sync.defer(None))
               }
             }
         case None     => Sync.defer(None)
@@ -115,27 +114,26 @@ class MetalsLauncherK(projectPath: Path):
     }
 
   def launchMetals()(using Frame): Option[KyoProcess] < Sync =
-    Sync.defer(logger.info("Looking for Metals installation..."))
+    Log.info("Looking for Metals installation...")
       .andThen(findMetalsInstallation())
       .flatMap {
         case Some(installation) =>
           val command = buildCommand(installation)
           val workDir = getWorkingDirectory(installation)
 
-          Sync.defer(logger.info(s"Starting Metals: ${command.mkString(" ")}"))
+          Log.info(s"Starting Metals: ${command.mkString(" ")}")
             .andThen {
               val cmd = KyoProcess.Command(command*)
                 .cwd(workDir)
                 .redirectErrorStream(false)
 
-              cmd.spawn.map { p =>
+              cmd.spawn.flatMap { p =>
                 metalsProcess = Some(p)
-                logger.info("Metals process started")
-                Some(p)
+                Log.info("Metals process started").andThen(Sync.defer(Some(p)))
               }
             }
         case None =>
-          Sync.defer { logger.severe("Could not find Metals installation"); None }
+          Log.error("Could not find Metals installation").andThen(Sync.defer(None))
       }
 
   private def buildCommand(installation: MetalsInstallation): Seq[String] =
@@ -182,16 +180,20 @@ class MetalsLauncherK(projectPath: Path):
   def validateProject()(using Frame): Boolean < Sync =
     Sync.defer {
       if !Files.exists(projectPath) then
-        logger.severe(s"Project path does not exist: $projectPath"); false
+        false
       else if !Files.isDirectory(projectPath) then
-        logger.severe(s"Project path is not a directory: $projectPath"); false
+        false
       else true
     }.flatMap { ok =>
-      if !ok then Sync.defer(false)
+      if !ok then
+        val msg =
+          if !Files.exists(projectPath) then s"Project path does not exist: $projectPath"
+          else s"Project path is not a directory: $projectPath"
+        Log.error(msg).andThen(Sync.defer(false))
       else
         isScalaProject().map { scalaLike =>
           if !scalaLike then
-            logger.warning("Directory does not appear to be a Scala project")
+            Log.warn("Directory does not appear to be a Scala project")
           true
         }
     }
@@ -200,14 +202,14 @@ class MetalsLauncherK(projectPath: Path):
     metalsProcess match
       case Some(p) =>
         for
-          _ <- Sync.defer(logger.info("Shutting down Metals process..."))
+          _ <- Log.info("Shutting down Metals process...")
           _ <- p.destroy
           terminated <- p.isAlive.map(alive => !alive)
           _ <-
             if !terminated then
-              Sync.defer(logger.warning("Metals process did not terminate gracefully, force killing..."))
+              Log.warn("Metals process did not terminate gracefully, force killing...")
                 .andThen(p.destroyForcibly.map(_ => ()))
             else Sync.defer(())
-          _ <- Sync.defer(logger.info("Metals process terminated"))
+          _ <- Log.info("Metals process terminated")
         yield metalsProcess = None
       case None => Sync.defer(())

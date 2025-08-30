@@ -5,12 +5,12 @@ import io.circe.parser.*
 import io.circe.syntax.*
 import kyo.*
 import kyo.AllowUnsafe.embrace.danger
+import kyo.Log
 
 import java.io.{OutputStreamWriter, PrintWriter}
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.logging.Logger
 
 /** Kyo-based LSP client for communicating with Metals over JSON-RPC 2.0 (stdin/stdout).
   *
@@ -18,7 +18,6 @@ import java.util.logging.Logger
   * original Future-based LspClient.
   */
 class LspClientK(process: java.lang.Process)(using Frame):
-  private val logger = Logger.getLogger(classOf[LspClientK].getName)
 
   private val requestId       = new AtomicInteger(0)
   private val pendingRequests = new ConcurrentHashMap[Int, java.util.concurrent.CompletableFuture[Json]]()
@@ -49,17 +48,18 @@ class LspClientK(process: java.lang.Process)(using Frame):
     messageHandlers.put(method, handler)
 
   def start(): Unit < Sync =
-    Sync.defer {
-      logger.info("Starting Kyo LSP client message reader...")
-      val runnable = new Runnable {
-        override def run(): Unit =
-          // Run the async reader to completion within this thread
-          kyo.Sync.Unsafe.evalOrThrow(kyo.KyoApp.runAndBlock(kyo.Duration.Infinity)(readMessages()))
+    Log.info("Starting Kyo LSP client message reader...").andThen {
+      Sync.defer {
+        val runnable = new Runnable {
+          override def run(): Unit =
+            // Run the async reader to completion within this thread
+            kyo.Sync.Unsafe.evalOrThrow(kyo.KyoApp.runAndBlock(kyo.Duration.Infinity)(readMessages()))
+        }
+        val t = new Thread(runnable, "lsp-reader-kyo")
+        t.setDaemon(true)
+        t.start()
+        ()
       }
-      val t = new Thread(runnable, "lsp-reader-kyo")
-      t.setDaemon(true)
-      t.start()
-      ()
     }
 
   private def readMessages(): Unit < (Async & Sync) =
@@ -70,7 +70,7 @@ class LspClientK(process: java.lang.Process)(using Frame):
           bytes <- Sync.defer(new Array[Byte](4096))
           read  <- Sync.defer(stdout.read(bytes))
           _     <-
-            if read == -1 then Sync.defer(logger.warning("End of stream from Metals process"))
+            if read == -1 then Log.warn("End of stream from Metals process")
             else if read == 0 then Sync.defer(Thread.sleep(10))
             else Sync.defer(())
           newBuf = if read > 0 then buffer + new String(bytes, 0, read, StandardCharsets.UTF_8) else buffer
@@ -103,13 +103,11 @@ class LspClientK(process: java.lang.Process)(using Frame):
     readLoop("")
 
   private def handleRawMessage(messageJson: String): Unit < Sync =
-    Sync.defer {
-      logger.info(s"Parsing LSP message: ${messageJson.take(200)}${if messageJson.length > 200 then "..." else ""}")
+    val preview = messageJson.take(200) + (if messageJson.length > 200 then "..." else "")
+    Log.info(s"Parsing LSP message: $preview").andThen {
       parse(messageJson) match
-        case Right(json) => handleMessage(json)
-        case Left(error) =>
-          logger.severe(s"Failed to parse JSON message: $error")
-          logger.info(s"Raw message: $messageJson")
+        case Right(json) => Sync.defer { handleMessage(json); () }
+        case Left(error) => Log.error(s"Failed to parse JSON message: $error").andThen(Log.info(s"Raw message: $messageJson"))
     }
 
   private def handleMessage(message: Json): Unit =

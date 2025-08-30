@@ -3,15 +3,15 @@ package scala.meta.metals.standalone
 import io.circe.*
 import io.circe.parser.*
 import kyo.*
+import kyo.Log
 import sttp.client3.*
 import scala.concurrent.duration.*
 
 import java.nio.file.{Files, Path}
-import java.util.logging.Logger
 
 /** Kyo port of McpMonitor: discovers MCP config and waits for the server to be healthy. */
 class McpMonitorK(projectPath: Path)(using Frame):
-  private val logger = Logger.getLogger(classOf[McpMonitorK].getName)
+  // Logging via kyo.Log
 
   private val configPaths = Seq(
     projectPath.resolve(".metals/mcp.json"),
@@ -22,12 +22,9 @@ class McpMonitorK(projectPath: Path)(using Frame):
   private val httpClient = SimpleHttpClient()
 
   def findMcpConfig(): Option[Path] < Sync =
-    Sync.defer {
-      configPaths.find { p =>
-        if Files.exists(p) then
-          logger.info(s"Found MCP config at: $p"); true
-        else false
-      }
+    Sync.defer(configPaths.find(p => Files.exists(p))).flatMap {
+      case Some(p) => Log.info(s"Found MCP config at: $p").andThen(Sync.defer(Some(p)))
+      case None    => Sync.defer(None)
     }
 
   def parseMcpConfig(configPath: Path): Option[Json] < Sync =
@@ -37,7 +34,8 @@ class McpMonitorK(projectPath: Path)(using Frame):
         parse(content).toOption
       catch
         case e: Exception =>
-          logger.severe(s"Error reading MCP config $configPath: ${e.getMessage}")
+          // Log error and return None
+          scala.Console.err.println(s"Error reading MCP config $configPath: ${e.getMessage}")
           None
     }
 
@@ -56,13 +54,9 @@ class McpMonitorK(projectPath: Path)(using Frame):
         metalsEntry.flatMap { metalsConf =>
           val c = metalsConf.hcursor
           c.downField("transport").downField("url").as[String].toOption.orElse(c.downField("url").as[String].toOption)
-        }.map { url =>
-          logger.info(s"Found MCP URL: $url"); url
-        }
+        }.map(identity)
       catch
-        case e: Exception =>
-          logger.severe(s"Error extracting MCP URL: ${e.getMessage}")
-          None
+        case _: Exception => None
     }
 
   def testMcpConnection(url: String, timeoutSeconds: Int = 5): Boolean < Sync =
@@ -74,13 +68,13 @@ class McpMonitorK(projectPath: Path)(using Frame):
         response.code.code < 500
       catch
         case e: Exception =>
-          logger.info(s"MCP connection test failed: ${e.getMessage}")
+          // It's expected to fail for invalid URLs used in tests
           false
     }
 
   def waitForMcpServer(timeoutSeconds: Int = 60): Option[String] < (Async & Sync) =
     def loop(remaining: Int): Option[String] < (Async & Sync) =
-      if remaining <= 0 then Sync.defer { logger.warning(s"MCP server did not start within $timeoutSeconds seconds"); None }
+      if remaining <= 0 then Log.warn(s"MCP server did not start within $timeoutSeconds seconds").andThen(Sync.defer(None))
       else
         findMcpConfig().flatMap {
           case Some(conf) =>
@@ -89,7 +83,7 @@ class McpMonitorK(projectPath: Path)(using Frame):
                 extractMcpUrl(json).flatMap {
                   case Some(url) =>
                     testMcpConnection(url).flatMap { ok =>
-                      if ok then Sync.defer { logger.info(s"MCP server is ready at: $url"); Some(url) }
+                      if ok then Log.info(s"MCP server is ready at: $url").andThen(Sync.defer(Some(url)))
                       else Async.sleep(1.second).andThen(loop(remaining - 1))
                     }
                   case None      => Async.sleep(1.second).andThen(loop(remaining - 1))
@@ -122,6 +116,6 @@ class McpMonitorK(projectPath: Path)(using Frame):
     def health(): Boolean < (Async & Sync) =
       testMcpConnection(mcpUrl).flatMap { ok =>
         if ok then Async.sleep(checkIntervalSeconds.seconds).andThen(health())
-        else Sync.defer { logger.warning("MCP server appears to be down"); false }
+        else Log.warn("MCP server appears to be down").andThen(Sync.defer(false))
       }
     health()

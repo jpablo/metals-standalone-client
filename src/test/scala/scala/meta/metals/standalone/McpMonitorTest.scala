@@ -6,7 +6,6 @@ import munit.FunSuite
 import java.nio.file.{Files, Path}
 import java.nio.charset.StandardCharsets
 import kyo.*
-import scala.concurrent.duration.*
 
 class McpMonitorTest extends FunSuite:
 

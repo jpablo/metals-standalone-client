@@ -20,10 +20,11 @@ This is a Scala application that provides a standalone MCP (Model Context Protoc
 ### Core Components
 
 - **Main.scala** (`scala.meta.metals.standalone.Main`): Entry point and application lifecycle management
-- **MetalsLauncher.scala**: Discovers and launches Metals language server via multiple methods (Coursier, SBT development, JAR files)
-- **LspClient.scala**: Minimal LSP client implementing JSON-RPC 2.0 protocol over stdin/stdout for Metals communication
-- **MetalsClient.scala**: Higher-level Metals-specific client that handles LSP initialization and MCP server configuration
-- **McpMonitor.scala**: Monitors MCP server health and configuration files, provides connection instructions
+- **MetalsLauncherK.scala**: Kyo-based Metals launcher (Coursier, SBT dev, JAR, direct)
+- **LspClientK.scala**: Kyo-based LSP client implementing JSON-RPC 2.0 over stdin/stdout for Metals
+- **MetalsClientK.scala**: Kyo-based orchestrator for Metals initialization and configuration
+- **McpMonitorK.scala**: Kyo-based MCP configuration discovery and health monitoring
+- Removed legacy non-Kyo components (MetalsClient.scala, LspClient.scala, McpMonitor.scala) after Kyo migration.
 
 ### Key Features
 

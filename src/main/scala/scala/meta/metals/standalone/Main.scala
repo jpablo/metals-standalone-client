@@ -31,7 +31,7 @@ object Main extends kyo.KyoApp:
     // Use Kyo console logger at the chosen level
     val level = if config.verbose then Log.Level.debug else Log.Level.info
     Log.withConsoleLogger(logName, level) {
-      new MetalsLight(config.projectPath, config.verbose).run()
+      new MetalsLight(config.projectPath).run()
     }
   }
 

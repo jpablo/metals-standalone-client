@@ -12,7 +12,7 @@ import java.lang.{Process => JProcess}
   * This approach maintains the robust error handling and lifecycle management from the
   * main branch while keeping the Kyo interface.
   */
-class MetalsLight(projectPath: Path, verbose: Boolean):
+class MetalsLight(projectPath: Path):
   implicit private val ec: ExecutionContext = ExecutionContext.global
   
   private val launcher                             = new MetalsLauncher(projectPath)

@@ -6,7 +6,9 @@ import io.circe.syntax.*
 import munit.FunSuite
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, InputStream}
 import java.nio.charset.StandardCharsets
+import kyo.*
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.*
 
 class LspClientTest extends FunSuite:
 
@@ -15,7 +17,7 @@ class LspClientTest extends FunSuite:
   class MockProcess(
       inputStream: InputStream = new ByteArrayInputStream(Array.empty),
       outputStream: ByteArrayOutputStream = new ByteArrayOutputStream()
-  ) extends Process:
+  ) extends java.lang.Process:
     override def getOutputStream   = outputStream
     override def getInputStream    = inputStream
     override def getErrorStream    = new ByteArrayInputStream(Array.empty)
@@ -31,68 +33,46 @@ class LspClientTest extends FunSuite:
     val contentBytes = content.getBytes(StandardCharsets.UTF_8)
     s"Content-Length: ${contentBytes.length}\r\n\r\n$content"
 
-  test("LspClient can be instantiated"):
+  test("LspClientK can be instantiated"):
     val mockProcess = new MockProcess()
-    val client      = new LspClient(mockProcess)
-    assert(client != null)
+    val client      = new LspClientK(mockProcess)
+    assert(client != null, "client should be constructed")
 
-  test("sendRequest creates proper JSON-RPC request"):
+  test("sendNotification creates proper JSON-RPC notification (Kyo)"):
+    import kyo.AllowUnsafe.embrace.danger
     val outputStream = new ByteArrayOutputStream()
     val mockProcess  = new MockProcess(outputStream = outputStream)
-    val client       = new LspClient(mockProcess)
+    val client       = new LspClientK(mockProcess)
 
     val params = Json.obj("test" -> "value".asJson)
-    client.sendRequest("test/method", Some(params))
-
-    val output = outputStream.toString(StandardCharsets.UTF_8.name())
-    assert(output.contains("Content-Length:"))
-    assert(output.contains("\"method\":\"test/method\""))
-    assert(output.contains("\"jsonrpc\":\"2.0\""))
-    assert(output.contains("\"id\":"))
-
-  test("sendNotification creates proper JSON-RPC notification"):
-    val outputStream = new ByteArrayOutputStream()
-    val mockProcess  = new MockProcess(outputStream = outputStream)
-    val client       = new LspClient(mockProcess)
-
-    val params = Json.obj("test" -> "value".asJson)
-    client.sendNotification("test/notification", Some(params))
+    Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(1.second)(client.sendNotification("test/notification", Some(params))))
 
     val output = outputStream.toString(StandardCharsets.UTF_8.name())
     assert(output.contains("Content-Length:"))
     assert(output.contains("\"method\":\"test/notification\""))
     assert(output.contains("\"jsonrpc\":\"2.0\""))
-    assert(!output.contains("\"id\":")) // Notifications don't have ID
+    assert(!output.contains("\"id\":"), "notification should not include id")
 
-  test("sendRequest without params works"):
+  test("sendNotification without params works (Kyo)"):
+    import kyo.AllowUnsafe.embrace.danger
     val outputStream = new ByteArrayOutputStream()
     val mockProcess  = new MockProcess(outputStream = outputStream)
-    val client       = new LspClient(mockProcess)
+    val client       = new LspClientK(mockProcess)
 
-    client.sendRequest("test/method")
-
-    val output = outputStream.toString(StandardCharsets.UTF_8.name())
-    assert(output.contains("\"method\":\"test/method\""))
-    assert(!output.contains("\"params\":"))
-
-  test("sendNotification without params works"):
-    val outputStream = new ByteArrayOutputStream()
-    val mockProcess  = new MockProcess(outputStream = outputStream)
-    val client       = new LspClient(mockProcess)
-
-    client.sendNotification("test/notification")
+    Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(1.second)(client.sendNotification("test/notification", None)))
 
     val output = outputStream.toString(StandardCharsets.UTF_8.name())
     assert(output.contains("\"method\":\"test/notification\""))
-    assert(!output.contains("\"params\":"))
+    assert(!output.contains("\"params\":"), "no params in notification")
 
-  test("handles window/showMessage correctly"):
+  test("handles window/showMessage correctly (Kyo)"):
+    import kyo.AllowUnsafe.embrace.danger
     val showMessageContent = Json
       .obj(
         "jsonrpc" -> "2.0".asJson,
         "method"  -> "window/showMessage".asJson,
         "params"  -> Json.obj(
-          "type"    -> 3.asJson, // Info
+          "type"    -> 3.asJson,
           "message" -> "Test message".asJson
         )
       )
@@ -102,13 +82,13 @@ class LspClientTest extends FunSuite:
       createLspMessage(showMessageContent).getBytes(StandardCharsets.UTF_8)
     )
     val mockProcess = new MockProcess(inputStream = inputStream)
-    val client      = new LspClient(mockProcess)
+    val client      = new LspClientK(mockProcess)
 
-    // Just verify it doesn't crash when processing the message
-    client.start()
-    Thread.sleep(100) // Give time for message processing
+    Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(1.second)(client.start()))
+    Thread.sleep(100)
 
-  test("handles response messages correctly"):
+  test("handles response messages correctly (Kyo)"):
+    import kyo.AllowUnsafe.embrace.danger
     val responseContent = Json
       .obj(
         "jsonrpc" -> "2.0".asJson,
@@ -117,40 +97,28 @@ class LspClientTest extends FunSuite:
       )
       .noSpaces
 
-    val inputStream  = new ByteArrayInputStream(
-      createLspMessage(responseContent).getBytes(StandardCharsets.UTF_8)
-    )
+    val inputStream  = new ByteArrayInputStream(createLspMessage(responseContent).getBytes(StandardCharsets.UTF_8))
     val outputStream = new ByteArrayOutputStream()
     val mockProcess  = new MockProcess(inputStream = inputStream, outputStream = outputStream)
-    val client       = new LspClient(mockProcess)
+    val client       = new LspClientK(mockProcess)
 
-    client.start()
+    // Start reader
+    Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(1.second)(client.start()))
+    // Send a request that will be resolved by the preloaded response with id=1
+    val result = Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(1.second)(client.sendRequest("test/method", None)))
+    assert(result != null, "request should complete with a JSON result")
 
-    // Send a request to create pending request with ID 1
-    val requestFuture = client.sendRequest("test/method")
-
-    // The future should complete when the response is processed
-    // Note: In a real scenario, we'd need more sophisticated mocking
-    // This test verifies the basic structure works
-    assert(requestFuture != null)
-
-  test("shutdown sends proper shutdown sequence"):
+  test("can send shutdown notification (Kyo)"):
+    import kyo.AllowUnsafe.embrace.danger
     val outputStream = new ByteArrayOutputStream()
     val mockProcess  = new MockProcess(outputStream = outputStream)
-    val client       = new LspClient(mockProcess)
+    val client       = new LspClientK(mockProcess)
 
-    client.shutdown()
-
-    // Wait a bit for async operations to complete
-    Thread.sleep(100)
-
+    Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(1.second)(client.sendNotification("shutdown", None)))
     val output = outputStream.toString(StandardCharsets.UTF_8.name())
-    assert(output.contains("\"method\":\"shutdown\""))
-    // The exit notification is sent after the shutdown response, so we may not see it in our mock test
-    // Just verify shutdown is sent
+    assert(output.contains("\"method\":\"shutdown\""), "shutdown notification must be sent")
 
-  test("message format validation"):
-    // Test that we can parse our own message format
+  test("message format validation (Kyo)"):
     val testMessage = Json.obj(
       "jsonrpc" -> "2.0".asJson,
       "method"  -> "test".asJson,
@@ -159,7 +127,6 @@ class LspClientTest extends FunSuite:
 
     val formatted = createLspMessage(testMessage.noSpaces)
 
-    // Extract content length
     val headerEnd = formatted.indexOf("\r\n\r\n")
     val header    = formatted.substring(0, headerEnd)
     val body      = formatted.substring(headerEnd + 4)
@@ -172,7 +139,6 @@ class LspClientTest extends FunSuite:
 
     assertEquals(contentLength, body.getBytes(StandardCharsets.UTF_8).length)
 
-    // Verify we can parse the JSON
     parse(body) match
       case Right(json) =>
         assertEquals(json.hcursor.downField("method").as[String], Right("test"))

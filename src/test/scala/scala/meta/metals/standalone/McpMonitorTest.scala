@@ -1,15 +1,14 @@
 package scala.meta.metals.standalone
 
-import io.circe._
-import io.circe.syntax._
+import io.circe.*
+import io.circe.syntax.*
 import munit.FunSuite
 import java.nio.file.{Files, Path}
 import java.nio.charset.StandardCharsets
-import scala.concurrent.{ExecutionContext, Future}
+import kyo.*
+import scala.concurrent.duration.*
 
 class McpMonitorTest extends FunSuite:
-
-  implicit val ec: ExecutionContext = ExecutionContext.global
 
   val tempDir: FunFixture[Path] = FunFixture[Path](
     setup = { _ =>
@@ -25,14 +24,16 @@ class McpMonitorTest extends FunSuite:
     }
   )
 
-  tempDir.test("McpMonitor can be instantiated") { tempDir =>
-    val monitor = new McpMonitor(tempDir)
+  tempDir.test("McpMonitorK can be instantiated") { tempDir =>
+    val monitor = new McpMonitorK(tempDir)
     assert(monitor != null)
   }
 
   tempDir.test("findMcpConfig returns None when no config exists") { tempDir =>
-    val monitor = new McpMonitor(tempDir)
-    assertEquals(monitor.findMcpConfig(), None)
+    val monitor = new McpMonitorK(tempDir)
+    import kyo.AllowUnsafe.embrace.danger
+    val res = Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(1.second)(monitor.findMcpConfig()))
+    assertEquals(res, None)
   }
 
   tempDir.test("findMcpConfig finds .metals/mcp.json") { tempDir =>
@@ -41,8 +42,10 @@ class McpMonitorTest extends FunSuite:
     val configPath = metalsDir.resolve("mcp.json")
     Files.write(configPath, "{}".getBytes(StandardCharsets.UTF_8))
 
-    val monitor = new McpMonitor(tempDir)
-    assertEquals(monitor.findMcpConfig(), Some(configPath))
+    val monitor = new McpMonitorK(tempDir)
+    import kyo.AllowUnsafe.embrace.danger
+    val res = Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(1.second)(monitor.findMcpConfig()))
+    assertEquals(res, Some(configPath))
   }
 
   tempDir.test("findMcpConfig finds .cursor/mcp.json") { tempDir =>
@@ -51,8 +54,10 @@ class McpMonitorTest extends FunSuite:
     val configPath = cursorDir.resolve("mcp.json")
     Files.write(configPath, "{}".getBytes(StandardCharsets.UTF_8))
 
-    val monitor = new McpMonitor(tempDir)
-    assertEquals(monitor.findMcpConfig(), Some(configPath))
+    val monitor = new McpMonitorK(tempDir)
+    import kyo.AllowUnsafe.embrace.danger
+    val res = Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(1.second)(monitor.findMcpConfig()))
+    assertEquals(res, Some(configPath))
   }
 
   tempDir.test("findMcpConfig finds .vscode/mcp.json") { tempDir =>
@@ -61,8 +66,10 @@ class McpMonitorTest extends FunSuite:
     val configPath = vscodeDir.resolve("mcp.json")
     Files.write(configPath, "{}".getBytes(StandardCharsets.UTF_8))
 
-    val monitor = new McpMonitor(tempDir)
-    assertEquals(monitor.findMcpConfig(), Some(configPath))
+    val monitor = new McpMonitorK(tempDir)
+    import kyo.AllowUnsafe.embrace.danger
+    val res = Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(1.second)(monitor.findMcpConfig()))
+    assertEquals(res, Some(configPath))
   }
 
   tempDir.test("findMcpConfig prioritizes .metals over others") { tempDir =>
@@ -77,8 +84,10 @@ class McpMonitorTest extends FunSuite:
     val cursorConfig = cursorDir.resolve("mcp.json")
     Files.write(cursorConfig, "{}".getBytes(StandardCharsets.UTF_8))
 
-    val monitor = new McpMonitor(tempDir)
-    assertEquals(monitor.findMcpConfig(), Some(metalsConfig))
+    val monitor = new McpMonitorK(tempDir)
+    import kyo.AllowUnsafe.embrace.danger
+    val res = Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(1.second)(monitor.findMcpConfig()))
+    assertEquals(res, Some(metalsConfig))
   }
 
   tempDir.test("parseMcpConfig handles valid JSON") { tempDir =>
@@ -86,8 +95,9 @@ class McpMonitorTest extends FunSuite:
     val validJson = Json.obj("test" -> "value".asJson).noSpaces
     Files.write(configPath, validJson.getBytes(StandardCharsets.UTF_8))
 
-    val monitor = new McpMonitor(tempDir)
-    val result = monitor.parseMcpConfig(configPath)
+    val monitor = new McpMonitorK(tempDir)
+    import kyo.AllowUnsafe.embrace.danger
+    val result = Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(1.second)(monitor.parseMcpConfig(configPath)))
 
     assert(result.isDefined)
     assertEquals(result.get.hcursor.downField("test").as[String], Right("value"))
@@ -97,8 +107,9 @@ class McpMonitorTest extends FunSuite:
     val configPath = tempDir.resolve("invalid-config.json")
     Files.write(configPath, "invalid json".getBytes(StandardCharsets.UTF_8))
 
-    val monitor = new McpMonitor(tempDir)
-    val result = monitor.parseMcpConfig(configPath)
+    val monitor = new McpMonitorK(tempDir)
+    import kyo.AllowUnsafe.embrace.danger
+    val result = Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(1.second)(monitor.parseMcpConfig(configPath)))
 
     assertEquals(result, None)
   }
@@ -106,8 +117,9 @@ class McpMonitorTest extends FunSuite:
   tempDir.test("parseMcpConfig handles non-existent file") { tempDir =>
     val configPath = tempDir.resolve("non-existent.json")
 
-    val monitor = new McpMonitor(tempDir)
-    val result = monitor.parseMcpConfig(configPath)
+    val monitor = new McpMonitorK(tempDir)
+    import kyo.AllowUnsafe.embrace.danger
+    val result = Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(1.second)(monitor.parseMcpConfig(configPath)))
 
     assertEquals(result, None)
   }
@@ -123,8 +135,9 @@ class McpMonitorTest extends FunSuite:
       )
     )
 
-    val monitor = new McpMonitor(Files.createTempDirectory("test"))
-    val result = monitor.extractMcpUrl(config)
+    val monitor = new McpMonitorK(Files.createTempDirectory("test"))
+    import kyo.AllowUnsafe.embrace.danger
+    val result = Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(1.second)(monitor.extractMcpUrl(config)))
 
     assertEquals(result, Some("http://localhost:8080/sse"))
 
@@ -139,8 +152,9 @@ class McpMonitorTest extends FunSuite:
       )
     )
 
-    val monitor = new McpMonitor(Files.createTempDirectory("test"))
-    val result = monitor.extractMcpUrl(config)
+    val monitor = new McpMonitorK(Files.createTempDirectory("test"))
+    import kyo.AllowUnsafe.embrace.danger
+    val result = Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(1.second)(monitor.extractMcpUrl(config)))
 
     assertEquals(result, Some("http://localhost:8080/sse"))
 
@@ -153,8 +167,9 @@ class McpMonitorTest extends FunSuite:
       )
     )
 
-    val monitor = new McpMonitor(Files.createTempDirectory("test"))
-    val result = monitor.extractMcpUrl(config)
+    val monitor = new McpMonitorK(Files.createTempDirectory("test"))
+    import kyo.AllowUnsafe.embrace.danger
+    val result = Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(1.second)(monitor.extractMcpUrl(config)))
 
     assertEquals(result, Some("http://localhost:8080/sse"))
 
@@ -169,8 +184,9 @@ class McpMonitorTest extends FunSuite:
       )
     )
 
-    val monitor = new McpMonitor(Files.createTempDirectory("test"))
-    val result = monitor.extractMcpUrl(config)
+    val monitor = new McpMonitorK(Files.createTempDirectory("test"))
+    import kyo.AllowUnsafe.embrace.danger
+    val result = Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(1.second)(monitor.extractMcpUrl(config)))
 
     assertEquals(result, Some("http://localhost:8080/sse"))
 
@@ -181,22 +197,24 @@ class McpMonitorTest extends FunSuite:
       )
     )
 
-    val monitor = new McpMonitor(Files.createTempDirectory("test"))
-    val result = monitor.extractMcpUrl(config)
+    val monitor = new McpMonitorK(Files.createTempDirectory("test"))
+    import kyo.AllowUnsafe.embrace.danger
+    val result = Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(1.second)(monitor.extractMcpUrl(config)))
 
     assertEquals(result, None)
 
   test("extractMcpUrl returns None for empty config"):
     val config = Json.obj()
 
-    val monitor = new McpMonitor(Files.createTempDirectory("test"))
-    val result = monitor.extractMcpUrl(config)
+    val monitor = new McpMonitorK(Files.createTempDirectory("test"))
+    import kyo.AllowUnsafe.embrace.danger
+    val result = Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(1.second)(monitor.extractMcpUrl(config)))
 
     assertEquals(result, None)
 
   test("getClaudeCommand generates correct command"):
     val tempDir = Files.createTempDirectory("test-project")
-    val monitor = new McpMonitor(tempDir)
+    val monitor = new McpMonitorK(tempDir)
 
     val command = monitor.getClaudeCommand("http://localhost:8080/sse")
     val expectedProjectName = tempDir.getFileName.toString
@@ -205,39 +223,28 @@ class McpMonitorTest extends FunSuite:
     assertEquals(command, expected)
 
   test("testMcpConnection with invalid URL returns false"):
-    val monitor = new McpMonitor(Files.createTempDirectory("test"))
-
-    val result = scala.concurrent.Await.result(
-      monitor.testMcpConnection("http://invalid-url-that-does-not-exist", 1),
-      scala.concurrent.duration.Duration("5 seconds")
-    )
-
+    val monitor = new McpMonitorK(Files.createTempDirectory("test"))
+    import kyo.AllowUnsafe.embrace.danger
+    val result = Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(5.seconds)(monitor.testMcpConnection("http://invalid-url-that-does-not-exist", 1)))
     assertEquals(result, false)
 
   tempDir.test("waitForMcpServer times out when no server starts") { tempDir =>
-    val monitor = new McpMonitor(tempDir)
-
-    val result = scala.concurrent.Await.result(
-      monitor.waitForMcpServer(1), // 1 second timeout
-      scala.concurrent.duration.Duration("5 seconds")
-    )
-
+    val monitor = new McpMonitorK(tempDir)
+    import kyo.AllowUnsafe.embrace.danger
+    val result = Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(5.seconds)(monitor.waitForMcpServer(1)))
     assertEquals(result, None)
   }
 
   tempDir.test("waitForMcpServer finds server when config appears") { tempDir =>
-    val monitor = new McpMonitor(tempDir)
+    val monitor = new McpMonitorK(tempDir)
+    import kyo.AllowUnsafe.embrace.danger
 
-    // Start waiting in background
-    val waitFuture = monitor.waitForMcpServer(10)
-
-    // Create config after a short delay
-    Future:
+    // Create config after a short delay in a helper thread
+    val writer = new Thread(() => {
       Thread.sleep(500)
       val metalsDir = tempDir.resolve(".metals")
       Files.createDirectories(metalsDir)
       val configPath = metalsDir.resolve("mcp.json")
-
       val config = Json.obj(
         "mcpServers" -> Json.obj(
           "metals-metals" -> Json.obj(
@@ -247,16 +254,12 @@ class McpMonitorTest extends FunSuite:
           )
         )
       )
-
       Files.write(configPath, config.noSpaces.getBytes(StandardCharsets.UTF_8))
+      ()
+    })
+    writer.setDaemon(true)
+    writer.start()
 
-    val result = scala.concurrent.Await.result(
-      waitFuture,
-      scala.concurrent.duration.Duration("15 seconds")
-    )
-
-    // The test will likely return None because example.com won't respond,
-    // but it should at least find the config and attempt connection
-    // This test mainly verifies the config discovery mechanism works
-    assert(result.isDefined || result.isEmpty) // Either outcome is acceptable for this test
+    val result = Sync.Unsafe.evalOrThrow(KyoApp.runAndBlock(15.seconds)(monitor.waitForMcpServer(10)))
+    assert(result.isDefined || result.isEmpty)
   }

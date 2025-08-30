@@ -34,9 +34,9 @@ class McpMonitorK(projectPath: Path)(using Frame):
         parse(content).toOption
       catch
         case e: Exception =>
-          // Log error and return None
-          scala.Console.err.println(s"Error reading MCP config $configPath: ${e.getMessage}")
-          None
+          // Log error and return None using effectful logging
+          // We are inside Sync.defer, so we can sequence the effect
+          Log.error(s"Error reading MCP config $configPath: ${e.getMessage}").andThen(Sync.defer(None))
     }
 
   def extractMcpUrl(config: Json): Option[String] < Sync =

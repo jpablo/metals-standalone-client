@@ -15,9 +15,9 @@ import scala.concurrent.ExecutionContext
 class MetalsLightK(projectPath: Path, verbose: Boolean):
   private val logger = Logger.getLogger(classOf[MetalsLightK].getName)
 
-  private val launcher                           = new MetalsLauncherK(projectPath)
-  private var lspClient: Option[LspClient]       = None
-  private var metalsClient: Option[MetalsClient] = None
+  private val launcher                               = new MetalsLauncherK(projectPath)
+  private var lspClientK: Option[LspClientK]         = None
+  private var metalsClientK: Option[MetalsClientK]   = None
   implicit private val ec: ExecutionContext      = ExecutionContext.global
 
   private def requireSome[A](opt: Option[A], msg: String)(using Frame): A < (Sync & Abort[Throwable]) =
@@ -29,12 +29,12 @@ class MetalsLightK(projectPath: Path, verbose: Boolean):
     Scope.ensure {
       // Best-effort cleanup in reverse order
       Sync.defer(logger.info("🔄 Shutting down components...") )
-        .andThen(metalsClient match
-          case Some(mc) => Async.fromFuture(mc.shutdown()).map(_ => ())
+        .andThen(metalsClientK match
+          case Some(mc) => mc.shutdown()
           case None     => Sync.defer(())
         )
-        .andThen(lspClient match
-          case Some(c)  => Async.fromFuture(c.shutdown()).map(_ => ())
+        .andThen(lspClientK match
+          case Some(c)  => c.shutdown()
           case None     => Sync.defer(())
         )
         .andThen(launcher.shutdown())
@@ -48,29 +48,30 @@ class MetalsLightK(projectPath: Path, verbose: Boolean):
         .andThen(Sync.defer(logger.info("📦 Launching Metals language server...")))
         .andThen(launcher.launchMetals().flatMap(opt => requireSome(opt, "❌ Failed to launch Metals")))
         .flatMap { proc =>
-          val jproc  = new KyoProcessAdapter(proc)
-          val client = new LspClient(jproc)
+          val jproc = new KyoProcessAdapter(proc)
+          val lspK  = new LspClientK(jproc)
+          lspClientK = Some(lspK)
 
-          Sync.defer { lspClient = Some(client); () }
-            .andThen(Async.fromFuture(client.start()))
+          lspK
+            .start()
             .andThen(Sync.defer(logger.info("🔗 Connected to Metals LSP server")))
             .andThen {
-              val metals = new MetalsClient(projectPath, client)
-              Sync.defer { metalsClient = Some(metals); () }
-                .andThen(
-                  Async.fromFuture(metals.initialize()).flatMap { initialized =>
-                    if initialized then Sync.defer(logger.info("✅ Metals language server initialized"))
-                    else Abort.fail(new RuntimeException("❌ Failed to initialize Metals"))
-                  }
-                )
+              val metalsK = new MetalsClientK(projectPath, lspK)
+              metalsClientK = Some(metalsK)
+              metalsK
+                .initialize()
+                .flatMap { initialized =>
+                  if initialized then Sync.defer(logger.info("✅ Metals language server initialized"))
+                  else Abort.fail(new RuntimeException("❌ Failed to initialize Metals"))
+                }
                 .andThen {
-                  val monitor = new McpMonitor(projectPath)
-                  Sync.defer(logger.info("⏳ Waiting for MCP server to start...") )
-                    .andThen(Async.fromFuture(monitor.waitForMcpServer()))
+                  val monitorK = new McpMonitorK(projectPath)
+                  Sync.defer(logger.info("⏳ Waiting for MCP server to start..."))
+                    .andThen(monitorK.waitForMcpServer())
                     .flatMap(opt => requireSome(opt, "❌ MCP server failed to start"))
                     .flatMap { url =>
-                      Sync.defer(monitor.printConnectionInfo(url))
-                        .andThen(Async.fromFuture(monitor.monitorMcpHealth(url)).map(_ => ()))
+                      monitorK.printConnectionInfo(url)
+                        .andThen(monitorK.monitorMcpHealth(url).map(_ => ()))
                     }
                 }
             }

@@ -2,66 +2,50 @@ package scala.meta.metals.standalone
 
 import io.circe.*
 import io.circe.syntax.*
-
 import java.nio.file.Path
 import java.util.logging.Logger
-import scala.concurrent.{ExecutionContext, Future}
+import kyo.*
 
-/** Minimal Metals Language Client that implements the essential LSP protocol to start Metals and enable the MCP server.
+/** Kyo-based Metals language client orchestrator.
+  * Minimal port of MetalsClient to work with LspClientK.
   */
-class MetalsClient(projectPath: Path, lspClient: LspClient)(using ExecutionContext):
-  private val logger = Logger.getLogger(classOf[MetalsClient].getName)
+class MetalsClientK(projectPath: Path, lspClient: LspClientK)(using Frame):
+  private val logger = Logger.getLogger(classOf[MetalsClientK].getName)
 
   @volatile private var initialized = false
 
-  def initialize(): Future[Boolean] =
-    if initialized then
-      logger.info("Already initialized, returning success")
-      Future.successful(true)
+  def initialize(): Boolean < (Async & Sync) =
+    if initialized then Sync.defer(true)
     else
-      logger.info("Initializing Metals language server...")
-
-      val initParams = createInitializeParams()
-      logger.info("Created initialization parameters")
-
-      logger.info("Sending initialize request to Metals...")
-      val initializeFuture = lspClient.sendRequest("initialize", Some(initParams))
-
-      // Add a timeout to avoid hanging forever
-      val timeoutFuture = scala.concurrent.Future {
-        Thread.sleep(120000) // 2 minutes - allow time for large responses and project setup
-        throw new java.util.concurrent.TimeoutException("Initialize request timed out after 2 minutes")
-      }
-
-      scala.concurrent.Future
-        .firstCompletedOf(Seq(initializeFuture, timeoutFuture))
-        .map { result =>
-          logger.info("Received initialize response from Metals")
-          val hasCapabilities = result.hcursor.downField("capabilities").succeeded
-
-          if hasCapabilities then
-            logger.info("Metals language server initialized successfully")
-
-            logger.info("Sending initialized notification...")
-            lspClient.sendNotification("initialized", Some(Json.obj()))
-
-            // Small delay to let Metals process the initialized notification
-            Thread.sleep(500)
-            logger.info("Configuring Metals...")
-            configureMetals()
-
-            initialized = true
-            logger.info("Initialization complete!")
-            true
-          else
-            logger.severe("Failed to initialize Metals language server - no capabilities in response")
-            logger.severe(s"Response was: $result")
-            false
-        }
-        .recover { case e =>
-          logger.severe(s"Metals initialization failed: ${e.getMessage}")
-          e.printStackTrace()
-          false
+      Sync.defer(logger.info("Initializing Metals language server..."))
+        .andThen {
+          val initParams = createInitializeParams()
+          lspClient
+            .sendRequest("initialize", Some(initParams))
+            .flatMap { result =>
+              val hasCapabilities = result.hcursor.downField("capabilities").succeeded
+              if hasCapabilities then
+                Sync.defer {
+                  logger.info("Metals language server initialized successfully")
+                }.andThen {
+                  lspClient.sendNotification("initialized", Some(Json.obj()))
+                }.andThen {
+                  Sync.defer(Thread.sleep(500)) // allow Metals to process initialized
+                }.andThen {
+                  Sync.defer(logger.info("Configuring Metals..."))
+                }.andThen {
+                  configureMetals()
+                }.andThen {
+                  initialized = true
+                  Sync.defer(true)
+                }
+              else
+                Sync.defer {
+                  logger.severe("Failed to initialize Metals language server - no capabilities in response")
+                  logger.severe(s"Response was: $result")
+                  false
+                }
+            }
         }
 
   private def createInitializeParams(): Json =
@@ -144,20 +128,17 @@ class MetalsClient(projectPath: Path, lspClient: LspClient)(using ExecutionConte
       "executeClientCommandProvider" -> false.asJson,
       "inputBoxProvider"             -> false.asJson,
       "isExitOnShutdown"             -> true.asJson,
-      "isHttpEnabled"                -> true.asJson, // Required for MCP server
+      "isHttpEnabled"                -> true.asJson,
       "quickPickProvider"            -> false.asJson,
       "renameProvider"               -> false.asJson,
       "statusBarProvider"            -> "off".asJson,
       "treeViewProvider"             -> false.asJson,
-      // Disable BSP-related features that might be hanging
       "bloopEmbeddedServer"          -> false.asJson,
       "automaticImportBuild"         -> "off".asJson,
       "askToReconnect"               -> false.asJson
     )
 
-  private def configureMetals(): Unit =
-    logger.info("Configuring Metals to enable MCP server...")
-
+  private def configureMetals(): Unit < Sync =
     val configParams = Json.obj(
       "settings" -> Json.obj(
         "metals" -> Json.obj(
@@ -165,9 +146,8 @@ class MetalsClient(projectPath: Path, lspClient: LspClient)(using ExecutionConte
         )
       )
     )
-
     lspClient.sendNotification("workspace/didChangeConfiguration", Some(configParams))
 
-  def shutdown(): Future[Unit] =
-    logger.info("Shutting down Metals client...")
+  def shutdown(): Unit < (Async & Sync) =
     lspClient.shutdown().map(_ => ())
+

@@ -119,36 +119,36 @@ class LspClient(process: Process)(using ExecutionContext):
                 val messageJson = buffer.substring(0, contentLength)
                 buffer = buffer.substring(contentLength)
 
-                logger.info(s"Raw LSP message received (length: $contentLength): $messageJson")
+                logger.fine(s"Raw LSP message received (length: $contentLength): $messageJson")
                 parseAndHandleMessage(messageJson)
     catch
       case e: Exception if !shutdownRequested =>
         logger.severe(s"Error reading messages: ${e.getMessage}")
 
   private def parseAndHandleMessage(messageJson: String): Unit =
-    logger.info(s"Parsing LSP message: ${messageJson.take(200)}${if messageJson.length > 200 then "..." else ""}")
+    logger.fine(s"Parsing LSP message: ${messageJson.take(200)}${if messageJson.length > 200 then "..." else ""}")
     parse(messageJson) match
       case Right(json) =>
-        logger.info("Successfully parsed LSP message")
+        logger.fine("Successfully parsed LSP message")
         handleMessage(json)
       case Left(error) =>
         logger.severe(s"Failed to parse JSON message: $error")
-        logger.info(s"Raw message: $messageJson")
+        logger.fine(s"Raw message: $messageJson")
 
   private def handleMessage(message: Json): Unit =
     val cursor = message.hcursor
 
-    logger.info(s"Processing message: ${message.noSpaces.take(100)}...")
+    logger.fine(s"Processing message: ${message.noSpaces.take(100)}...")
 
     // Check if this is a response to our request
     cursor.downField("id").as[Int] match
       case Right(id) if pendingRequests.containsKey(id) =>
-        logger.info(s"Received LSP response for request id: $id")
+        logger.fine(s"Received LSP response for request id: $id")
         val promise = pendingRequests.remove(id)
         cursor.downField("result").as[Json] match
           case Right(result) =>
-            logger.info(s"LSP request $id completed successfully")
-            logger.info(s"Response result: ${result.noSpaces.take(200)}...")
+            logger.fine(s"LSP request $id completed successfully")
+            logger.fine(s"Response result: ${result.noSpaces.take(200)}...")
             promise.success(result)
           case Left(_)       =>
             cursor.downField("error").as[Json] match
@@ -185,15 +185,15 @@ class LspClient(process: Process)(using ExecutionContext):
                       case Right(msgId) => sendErrorResponse(msgId, e.getMessage)
                       case Left(_)      => // Notification, can't send error response
               case None          =>
-                logger.warning(s"Unhandled LSP method: $method")
-                logger.info(s"Unhandled method params: $params")
+                logger.fine(s"Unhandled LSP method: $method")
+                logger.fine(s"Unhandled method params: $params")
                 // Check if this is a request (has id) that needs a response
                 cursor.downField("id").as[Int] match
                   case Right(msgId) =>
-                    logger.warning(s"Unhandled method $method is a request (id: $msgId) - sending empty response")
+                    logger.fine(s"Unhandled method $method is a request (id: $msgId) - sending empty response")
                     sendResponse(msgId, Json.Null)
                   case Left(_)      =>
-                    logger.info(s"Unhandled method $method is a notification - no response needed")
+                    logger.fine(s"Unhandled method $method is a notification - no response needed")
 
           case Left(_) =>
             logger.warning(s"Message without method: $message")
@@ -234,7 +234,7 @@ class LspClient(process: Process)(using ExecutionContext):
     val id      = requestId.incrementAndGet()
     val promise = Promise[Json]()
 
-    logger.info(s"Sending LSP request: $method (id: $id)")
+    logger.fine(s"Sending LSP request: $method (id: $id)")
     pendingRequests.put(id, promise)
 
     val request = Json.obj(
@@ -246,9 +246,9 @@ class LspClient(process: Process)(using ExecutionContext):
       case None    => Json.obj()
     )
 
-    logger.info(s"LSP request JSON: ${request.noSpaces}")
+    logger.fine(s"LSP request JSON: ${request.noSpaces}")
     sendMessage(request)
-    logger.info(s"LSP request sent: $method (id: $id)")
+    logger.fine(s"LSP request sent: $method (id: $id)")
     promise.future
 
   def sendNotification(method: String, params: Option[Json] = None): Unit =

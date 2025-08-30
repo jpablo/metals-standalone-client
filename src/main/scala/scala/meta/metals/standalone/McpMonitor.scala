@@ -86,12 +86,12 @@ class McpMonitor(projectPath: Path)(using ExecutionContext):
             }
             .toOption
             .map { url =>
-              logger.info(s"Found MCP URL: $url")
+              logger.fine(s"Found MCP URL: $url")
               url
             }
 
         case Left(_) =>
-          logger.info("No metals server configuration found")
+          logger.fine("No metals server configuration found")
           None
     catch
       case e: Exception =>
@@ -115,7 +115,7 @@ class McpMonitor(projectPath: Path)(using ExecutionContext):
         response.code.code < 500
       catch
         case e: Exception =>
-          logger.info(s"MCP connection test failed: ${e.getMessage}")
+          logger.fine(s"MCP connection test failed: ${e.getMessage}")
           false
     }
 
@@ -130,9 +130,9 @@ class McpMonitor(projectPath: Path)(using ExecutionContext):
         logger.warning(s"MCP server did not start within $timeoutSeconds seconds")
         Future.successful(None)
       else
-        // Log progress every 10 seconds
+        // Log progress every 10 seconds (debug level)
         val elapsed = (currentTime - startTime) / 1000
-        if elapsed > 0 && elapsed % 10 == 0 then logger.info(s"Still waiting for MCP server... (${elapsed}s elapsed)")
+        if elapsed > 0 && elapsed % 10 == 0 then logger.fine(s"Still waiting for MCP server... (${elapsed}s elapsed)")
 
         findMcpConfig() match
           case Some(configPath) =>
@@ -145,7 +145,7 @@ class McpMonitor(projectPath: Path)(using ExecutionContext):
                         logger.info(s"MCP server is ready at: $mcpUrl")
                         Future.successful(Some(mcpUrl))
                       else
-                        logger.info("MCP config found but server not responding yet")
+                        logger.fine("MCP config found but server not responding yet")
                         // Wait 1 second and try again
                         Future {
                           Thread.sleep(1000)

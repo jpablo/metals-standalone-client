@@ -22,9 +22,9 @@ class MetalsClient(projectPath: Path, lspClient: LspClient)(using ExecutionConte
       logger.info("Initializing Metals language server...")
 
       val initParams = createInitializeParams()
-      logger.info("Created initialization parameters")
+      logger.fine("Created initialization parameters")
 
-      logger.info("Sending initialize request to Metals...")
+      logger.fine("Sending initialize request to Metals...")
       val initializeFuture = lspClient.sendRequest("initialize", Some(initParams))
 
       // Add a timeout to avoid hanging forever
@@ -36,26 +36,26 @@ class MetalsClient(projectPath: Path, lspClient: LspClient)(using ExecutionConte
       scala.concurrent.Future
         .firstCompletedOf(Seq(initializeFuture, timeoutFuture))
         .map { result =>
-          logger.info("Received initialize response from Metals")
+          logger.fine("Received initialize response from Metals")
           val hasCapabilities = result.hcursor.downField("capabilities").succeeded
 
           if hasCapabilities then
             logger.info("Metals language server initialized successfully")
 
-            logger.info("Sending initialized notification...")
+            logger.fine("Sending initialized notification...")
             lspClient.sendNotification("initialized", Some(Json.obj()))
 
             // Small delay to let Metals process the initialized notification
             Thread.sleep(500)
-            logger.info("Configuring Metals...")
+            logger.fine("Configuring Metals...")
             configureMetals()
 
             initialized = true
-            logger.info("Initialization complete!")
+            logger.fine("Initialization complete!")
             true
           else
             logger.severe("Failed to initialize Metals language server - no capabilities in response")
-            logger.severe(s"Response was: $result")
+            logger.fine(s"Response was: $result")
             false
         }
         .recover { case e =>
@@ -156,7 +156,7 @@ class MetalsClient(projectPath: Path, lspClient: LspClient)(using ExecutionConte
     )
 
   private def configureMetals(): Unit =
-    logger.info("Configuring Metals to enable MCP server...")
+    logger.fine("Configuring Metals to enable MCP server...")
 
     val configParams = Json.obj(
       "settings" -> Json.obj(

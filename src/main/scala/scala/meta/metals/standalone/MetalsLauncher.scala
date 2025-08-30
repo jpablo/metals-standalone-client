@@ -35,7 +35,7 @@ class MetalsLauncher(projectPath: Path):
 
     coursierCommand.flatMap { cs =>
       try
-        logger.info("Attempting to fetch Metals classpath via Coursier...")
+        logger.fine("Attempting to fetch Metals classpath via Coursier...")
 
         // Use coursier fetch command to get classpath
         val command        = Seq(cs, "fetch", "--classpath", "org.scalameta:metals_2.13:1.6.0")
@@ -60,7 +60,7 @@ class MetalsLauncher(projectPath: Path):
 
     if Files.exists(buildSbt) then
       findExecutable("sbt").map { sbt =>
-        logger.info("Using SBT to run Metals from source (development version)")
+        logger.fine("Using SBT to run Metals from source (development version)")
         MetalsInstallation.SbtDevelopment(sbt, currentDir)
       }
     else None
@@ -104,7 +104,7 @@ class MetalsLauncher(projectPath: Path):
     findExecutable("java")
 
   def launchMetals(): Option[java.lang.Process] =
-    logger.info("Looking for Metals installation...")
+    logger.fine("Looking for Metals installation...")
 
     findMetalsInstallation() match
       case Some(installation) =>
@@ -121,7 +121,7 @@ class MetalsLauncher(projectPath: Path):
           val process = processBuilder.start()
 
           metalsProcess = Some(process)
-          logger.info(s"Metals process started")
+          logger.fine(s"Metals process started")
           Some(process)
         catch
           case e: Exception =>
@@ -161,7 +161,7 @@ class MetalsLauncher(projectPath: Path):
     val hasIndicator = scalaIndicators.exists { indicator =>
       val path = projectPath.resolve(indicator)
       if Files.exists(path) then
-        logger.info(s"Detected Scala project via $indicator")
+        logger.fine(s"Detected Scala project via $indicator")
         true
       else false
     }
@@ -177,7 +177,7 @@ class MetalsLauncher(projectPath: Path):
         .getOrElse(false)
 
       if hasScalaFiles then
-        logger.info("Detected Scala project via .scala files")
+        logger.fine("Detected Scala project via .scala files")
         true
       else
         logger.warning("No Scala project indicators found")
@@ -199,7 +199,7 @@ class MetalsLauncher(projectPath: Path):
 
   def shutdown(): Unit =
     metalsProcess.foreach { process =>
-      logger.info("Shutting down Metals process...")
+      logger.fine("Shutting down Metals process...")
 
       try
         // Try graceful shutdown first
@@ -215,7 +215,7 @@ class MetalsLauncher(projectPath: Path):
           logger.warning("Metals process did not terminate gracefully, force killing...")
           process.destroyForcibly(): Unit
 
-        logger.info("Metals process terminated")
+        logger.fine("Metals process terminated")
       catch
         case e: Exception =>
           logger.severe(s"Error shutting down Metals process: ${e.getMessage}")

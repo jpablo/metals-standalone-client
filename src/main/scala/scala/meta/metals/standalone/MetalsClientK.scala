@@ -3,21 +3,20 @@ package scala.meta.metals.standalone
 import io.circe.*
 import io.circe.syntax.*
 import java.nio.file.Path
-import java.util.logging.Logger
 import kyo.*
+import kyo.Log
 
 /** Kyo-based Metals language client orchestrator.
   * Minimal port of MetalsClient to work with LspClientK.
   */
 class MetalsClientK(projectPath: Path, lspClient: LspClientK)(using Frame):
-  private val logger = Logger.getLogger(classOf[MetalsClientK].getName)
 
   @volatile private var initialized = false
 
   def initialize(): Boolean < (Async & Sync) =
     if initialized then Sync.defer(true)
     else
-      Sync.defer(logger.info("Initializing Metals language server..."))
+      Log.info("Initializing Metals language server...")
         .andThen {
           val initParams = createInitializeParams()
           lspClient
@@ -25,14 +24,12 @@ class MetalsClientK(projectPath: Path, lspClient: LspClientK)(using Frame):
             .flatMap { result =>
               val hasCapabilities = result.hcursor.downField("capabilities").succeeded
               if hasCapabilities then
-                Sync.defer {
-                  logger.info("Metals language server initialized successfully")
-                }.andThen {
+                Log.info("Metals language server initialized successfully").andThen {
                   lspClient.sendNotification("initialized", Some(Json.obj()))
                 }.andThen {
                   Sync.defer(Thread.sleep(500)) // allow Metals to process initialized
                 }.andThen {
-                  Sync.defer(logger.info("Configuring Metals..."))
+                  Log.info("Configuring Metals...")
                 }.andThen {
                   configureMetals()
                 }.andThen {
@@ -40,11 +37,9 @@ class MetalsClientK(projectPath: Path, lspClient: LspClientK)(using Frame):
                   Sync.defer(true)
                 }
               else
-                Sync.defer {
-                  logger.severe("Failed to initialize Metals language server - no capabilities in response")
-                  logger.severe(s"Response was: $result")
-                  false
-                }
+                Log.error("Failed to initialize Metals language server - no capabilities in response")
+                  .andThen(Log.error(s"Response was: $result"))
+                  .andThen(Sync.defer(false))
             }
         }
 
@@ -150,4 +145,3 @@ class MetalsClientK(projectPath: Path, lspClient: LspClientK)(using Frame):
 
   def shutdown(): Unit < (Async & Sync) =
     lspClient.shutdown().map(_ => ())
-

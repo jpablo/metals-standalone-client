@@ -1,0 +1,177 @@
+{
+    "version": "1.4.0",
+    "project": {
+        "name": "metal-standalone-client",
+        "directory": "/Users/jpablo/proyectos/experimentos/metal-standalone-client",
+        "workspaceDir": "/Users/jpablo/proyectos/experimentos/metal-standalone-client",
+        "sources": [
+            "/Users/jpablo/proyectos/experimentos/metal-standalone-client/src/main/scala",
+            "/Users/jpablo/proyectos/experimentos/metal-standalone-client/src/main/scala-2.12",
+            "/Users/jpablo/proyectos/experimentos/metal-standalone-client/src/main/scala-2",
+            "/Users/jpablo/proyectos/experimentos/metal-standalone-client/src/main/java",
+            "/Users/jpablo/proyectos/experimentos/metal-standalone-client/target/scala-2.12/src_managed/main",
+            "/Users/jpablo/proyectos/experimentos/metal-standalone-client/project.scala"
+        ],
+        "dependencies": [
+            
+        ],
+        "classpath": [
+            "/Users/jpablo/.sbt/boot/scala-2.12.20/lib/scala-library.jar"
+        ],
+        "out": "/Users/jpablo/proyectos/experimentos/metal-standalone-client/.bloop/metal-standalone-client",
+        "classesDir": "/Users/jpablo/proyectos/experimentos/metal-standalone-client/.bloop/metal-standalone-client/scala-2.12/classes",
+        "resources": [
+            "/Users/jpablo/proyectos/experimentos/metal-standalone-client/src/main/resources",
+            "/Users/jpablo/proyectos/experimentos/metal-standalone-client/target/scala-2.12/resource_managed/main"
+        ],
+        "scala": {
+            "organization": "org.scala-lang",
+            "name": "scala-compiler",
+            "version": "2.12.20",
+            "options": [
+                
+            ],
+            "jars": [
+                "/Users/jpablo/.sbt/boot/scala-2.12.20/lib/scala-library.jar",
+                "/Users/jpablo/.sbt/boot/scala-2.12.20/lib/scala-compiler.jar",
+                "/Users/jpablo/.sbt/boot/scala-2.12.20/lib/scala-reflect.jar",
+                "/Users/jpablo/.sbt/boot/scala-2.12.20/lib/scala-xml_2.12-2.3.0.jar"
+            ],
+            "setup": {
+                "order": "mixed",
+                "addLibraryToBootClasspath": true,
+                "addCompilerToClasspath": false,
+                "addExtraJarsToClasspath": false,
+                "manageBootClasspath": true,
+                "filterLibraryFromClasspath": true
+            }
+        },
+        "java": {
+            "options": [
+                
+            ]
+        },
+        "test": {
+            "frameworks": [
+                {
+                    "names": [
+                        "org.scalacheck.ScalaCheckFramework"
+                    ]
+                },
+                {
+                    "names": [
+                        "org.specs2.runner.Specs2Framework",
+                        "org.specs2.runner.SpecsFramework"
+                    ]
+                },
+                {
+                    "names": [
+                        "org.specs.runner.SpecsFramework"
+                    ]
+                },
+                {
+                    "names": [
+                        "org.scalatest.tools.Framework",
+                        "org.scalatest.tools.ScalaTestFramework"
+                    ]
+                },
+                {
+                    "names": [
+                        "com.novocode.junit.JUnitFramework"
+                    ]
+                },
+                {
+                    "names": [
+                        "munit.Framework"
+                    ]
+                },
+                {
+                    "names": [
+                        "zio.test.sbt.ZTestFramework"
+                    ]
+                },
+                {
+                    "names": [
+                        "weaver.framework.CatsEffect"
+                    ]
+                },
+                {
+                    "names": [
+                        "hedgehog.sbt.Framework"
+                    ]
+                }
+            ],
+            "options": {
+                "excludes": [
+                    
+                ],
+                "arguments": [
+                    
+                ]
+            }
+        },
+        "platform": {
+            "name": "jvm",
+            "config": {
+                "home": "/Users/jpablo/.asdf/installs/java/temurin-17.0.16+8",
+                "options": [
+                    "-Duser.dir=/Users/jpablo/proyectos/experimentos/metal-standalone-client"
+                ]
+            },
+            "mainClass": [
+                
+            ],
+            "runtimeConfig": {
+                "home": "/Users/jpablo/.asdf/installs/java/temurin-17.0.16+8",
+                "options": [
+                    "-Duser.dir=/Users/jpablo/proyectos/experimentos/metal-standalone-client"
+                ]
+            },
+            "classpath": [
+                "/Users/jpablo/proyectos/experimentos/metal-standalone-client/.bloop/metal-standalone-client/scala-2.12/classes",
+                "/Users/jpablo/.sbt/boot/scala-2.12.20/lib/scala-library.jar"
+            ]
+        },
+        "resolution": {
+            "modules": [
+                {
+                    "organization": "org.scala-lang",
+                    "name": "scala-library",
+                    "version": "2.12.20",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "scala-library",
+                            "path": "/Users/jpablo/.sbt/boot/scala-2.12.20/lib/scala-library.jar"
+                        },
+                        {
+                            "name": "scala-library",
+                            "classifier": "sources",
+                            "path": "/Users/jpablo/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala-library/2.12.20/scala-library-2.12.20-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.scala-lang",
+                    "name": "scala-library",
+                    "version": "2.12.20",
+                    "configurations": "optional",
+                    "artifacts": [
+                        {
+                            "name": "scala-library",
+                            "path": "/Users/jpablo/.sbt/boot/scala-2.12.20/lib/scala-library.jar"
+                        },
+                        {
+                            "name": "scala-library",
+                            "classifier": "sources",
+                            "path": "/Users/jpablo/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala-library/2.12.20/scala-library-2.12.20-sources.jar"
+                        }
+                    ]
+                }
+            ]
+        },
+        "tags": [
+            "library"
+        ]
+    }
+}

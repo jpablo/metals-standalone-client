@@ -1,0 +1,38 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuite hostname="juan-mac-studio.local" name="scala.meta.metals.standalone.MetalsLauncherTest" tests="14" errors="0" failures="0" skipped="0" time="1.089" timestamp="2025-06-27T10:31:25">
+          <properties>
+      <property name="java.specification.version" value="17"/><property name="sun.jnu.encoding" value="UTF-8"/><property name="sun.arch.data.model" value="64"/><property name="java.vendor.url" value="https://adoptium.net/"/><property name="sun.boot.library.path" value="/Users/jpablo/.asdf/installs/java/adoptopenjdk-17.0.3+7/lib"/><property name="sun.java.command" value="/opt/homebrew/Cellar/sbt/1.10.5/libexec/bin/sbt-launch.jar test"/><property name="jdk.debug" value="release"/><property name="java.specification.vendor" value="Oracle Corporation"/><property name="java.version.date" value="2022-04-19"/><property name="java.home" value="/Users/jpablo/.asdf/installs/java/adoptopenjdk-17.0.3+7"/><property name="file.separator" value="/"/><property name="java.vm.compressedOopsMode" value="Zero based"/><property name="line.separator" value="
+"/><property name="java.vm.specification.vendor" value="Oracle Corporation"/><property name="java.specification.name" value="Java Platform API Specification"/><property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/><property name="java.runtime.version" value="17.0.3+7"/><property name="user.name" value="jpablo"/><property name="log4j.ignoreTCL" value="true"/><property name="file.encoding" value="UTF-8"/><property name="java.vendor.version" value="Temurin-17.0.3+7"/><property name="java.io.tmpdir" value="/var/folders/d_/l31r8jq15_b3chmbhgzvkm600000gn/T/"/><property name="java.version" value="17.0.3"/><property name="java.vm.specification.name" value="Java Virtual Machine Specification"/><property name="native.encoding" value="UTF-8"/><property name="java.library.path" value="/Users/jpablo/Library/Java/Extensions:/Library/Java/Extensions:/Network/Library/Java/Extensions:/System/Library/Java/Extensions:/usr/lib/java:."/><property name="java.vendor" value="Eclipse Adoptium"/><property name="scala.ext.dirs" value="/Users/jpablo/.sbt/1.0/java9-rt-ext-eclipse_adoptium_17_0_3"/><property name="sun.io.unicode.encoding" value="UnicodeBig"/><property name="socksNonProxyHosts" value="local|*.local|169.254/16|*.169.254/16"/><property name="java.class.path" value="/opt/homebrew/Cellar/sbt/1.10.5/libexec/bin/sbt-launch.jar"/><property name="java.vm.vendor" value="Eclipse Adoptium"/><property name="jline.shutdownhook" value="false"/><property name="user.timezone" value="America/Los_Angeles"/><property name="java.vm.specification.version" value="17"/><property name="os.name" value="Mac OS X"/><property name="sun.java.launcher" value="SUN_STANDARD"/><property name="user.country" value="US"/><property name="http.nonProxyHosts" value="local|*.local|169.254/16|*.169.254/16"/><property name="sun.cpu.endian" value="little"/><property name="user.home" value="/Users/jpablo"/><property name="user.language" value="en"/><property name="sbt.script" value="/opt/homebrew/Cellar/sbt/1.10.5/libexec/bin/sbt"/><property name="sbt.ipcsocket.tmpdir" value="/var/folders/d_/l31r8jq15_b3chmbhgzvkm600000gn/T/.sbt952bcb7f/ipcsocket"/><property name="swoval.tmpdir" value="/var/folders/d_/l31r8jq15_b3chmbhgzvkm600000gn/T/.sbt952bcb7f/swoval"/><property name="jline.esc.timeout" value="0"/><property name="ftp.nonProxyHosts" value="local|*.local|169.254/16|*.169.254/16"/><property name="path.separator" value=":"/><property name="os.version" value="15.5"/><property name="jna.nosys" value="true"/><property name="java.runtime.name" value="OpenJDK Runtime Environment"/><property name="java.vm.name" value="OpenJDK 64-Bit Server VM"/><property name="java.vendor.url.bug" value="https://github.com/adoptium/adoptium-support/issues"/><property name="user.dir" value="/Users/jpablo/proyectos/experimentos/metal-standalone-client"/><property name="os.arch" value="aarch64"/><property name="java.vm.info" value="mixed mode"/><property name="java.vm.version" value="17.0.3+7"/><property name="java.class.version" value="61.0"/>
+    </properties>
+          <testcase classname="scala.meta.metals.standalone.MetalsLauncherTest" name="validateProject returns false for non-existent path" time="0.037">
+                      
+                    </testcase><testcase classname="scala.meta.metals.standalone.MetalsLauncherTest" name="validateProject returns false for file instead of directory" time="0.002">
+                      
+                    </testcase><testcase classname="scala.meta.metals.standalone.MetalsLauncherTest" name="validateProject returns true for valid directory" time="0.004">
+                      
+                    </testcase><testcase classname="scala.meta.metals.standalone.MetalsLauncherTest" name="isScalaProject detects build.sbt" time="0.006">
+                      
+                    </testcase><testcase classname="scala.meta.metals.standalone.MetalsLauncherTest" name="isScalaProject detects Build.scala" time="0.002">
+                      
+                    </testcase><testcase classname="scala.meta.metals.standalone.MetalsLauncherTest" name="isScalaProject detects build.sc (Mill)" time="0.001">
+                      
+                    </testcase><testcase classname="scala.meta.metals.standalone.MetalsLauncherTest" name="isScalaProject detects pom.xml" time="0.001">
+                      
+                    </testcase><testcase classname="scala.meta.metals.standalone.MetalsLauncherTest" name="isScalaProject detects build.gradle" time="0.001">
+                      
+                    </testcase><testcase classname="scala.meta.metals.standalone.MetalsLauncherTest" name="isScalaProject detects project.scala" time="0.001">
+                      
+                    </testcase><testcase classname="scala.meta.metals.standalone.MetalsLauncherTest" name="isScalaProject detects .scala files" time="0.002">
+                      
+                    </testcase><testcase classname="scala.meta.metals.standalone.MetalsLauncherTest" name="isScalaProject detects .sc files" time="0.001">
+                      
+                    </testcase><testcase classname="scala.meta.metals.standalone.MetalsLauncherTest" name="isScalaProject returns false for non-Scala project" time="0.004">
+                      
+                    </testcase><testcase classname="scala.meta.metals.standalone.MetalsLauncherTest" name="findMetalsInstallation returns None when no installation found" time="1.026">
+                      
+                    </testcase><testcase classname="scala.meta.metals.standalone.MetalsLauncherTest" name="MetalsInstallation types are properly defined" time="0.001">
+                      
+                    </testcase>
+          <system-out><![CDATA[]]></system-out>
+          <system-err><![CDATA[]]></system-err>
+        </testsuite>

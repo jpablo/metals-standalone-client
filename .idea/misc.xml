@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ComposerSettings">
+    <execution />
+  </component>
+  <component name="JPAMappingSettings">
+    <option name="jpaMappings">
+      <list>
+        <ConfigurableJPAMapping>
+          <option name="family" value="H2" />
+          <option name="javaDataType" value="Long" />
+          <option name="sqlDataType" value="BIGINT" />
+        </ConfigurableJPAMapping>
+        <ConfigurableJPAMapping>
+          <option name="family" value="H2" />
+          <option name="javaDataType" value="java.sql.Date" />
+          <option name="sqlDataType" value="DATE" />
+        </ConfigurableJPAMapping>
+        <ConfigurableJPAMapping>
+          <option name="family" value="H2" />
+          <option name="sqlDataType" value="VARCHAR" />
+        </ConfigurableJPAMapping>
+        <ConfigurableJPAMapping>
+          <option name="family" value="MySQL" />
+          <option name="javaDataType" value="Long" />
+          <option name="sqlDataType" value="bigint" />
+        </ConfigurableJPAMapping>
+        <ConfigurableJPAMapping>
+          <option name="family" value="MySQL" />
+          <option name="javaDataType" value="Boolean" />
+          <option name="sqlDataType" value="bit" />
+        </ConfigurableJPAMapping>
+        <ConfigurableJPAMapping>
+          <option name="family" value="MySQL" />
+          <option name="javaDataType" value="java.sql.Date" />
+          <option name="sqlDataType" value="date" />
+        </ConfigurableJPAMapping>
+        <ConfigurableJPAMapping>
+          <option name="family" value="MySQL" />
+          <option name="javaDataType" value="java.sql.Timestamp" />
+          <option name="sqlDataType" value="datetime" />
+        </ConfigurableJPAMapping>
+        <ConfigurableJPAMapping>
+          <option name="family" value="MySQL" />
+          <option name="javaDataType" value="BigDecimal" />
+          <option name="sqlDataType" value="decimal" />
+        </ConfigurableJPAMapping>
+        <ConfigurableJPAMapping>
+          <option name="family" value="MySQL" />
+          <option name="javaDataType" value="Double" />
+          <option name="sqlDataType" value="double" />
+        </ConfigurableJPAMapping>
+        <ConfigurableJPAMapping>
+          <option name="family" value="MySQL" />
+          <option name="sqlDataType" value="enum" />
+        </ConfigurableJPAMapping>
+        <ConfigurableJPAMapping>
+          <option name="family" value="MySQL" />
+          <option name="javaDataType" value="Float" />
+          <option name="sqlDataType" value="float" />
+        </ConfigurableJPAMapping>
+        <ConfigurableJPAMapping>
+          <option name="family" value="MySQL" />
+          <option name="javaDataType" value="Integer" />
+          <option name="sqlDataType" value="int" />
+        </ConfigurableJPAMapping>
+        <ConfigurableJPAMapping>
+          <option name="family" value="MySQL" />
+          <option name="sqlDataType" value="json" />
+        </ConfigurableJPAMapping>
+        <ConfigurableJPAMapping>
+          <option name="family" value="MySQL" />
+          <option name="javaDataType" value="Integer" />
+          <option name="sqlDataType" value="smallint" />
+        </ConfigurableJPAMapping>
+        <ConfigurableJPAMapping>
+          <option name="family" value="MySQL" />
+          <option name="sqlDataType" value="text" />
+        </ConfigurableJPAMapping>
+        <ConfigurableJPAMapping>
+          <option name="family" value="MySQL" />
+          <option name="javaDataType" value="java.sql.Timestamp" />
+          <option name="sqlDataType" value="timestamp" />
+        </ConfigurableJPAMapping>
+        <ConfigurableJPAMapping>
+          <option name="family" value="MySQL" />
+          <option name="javaDataType" value="java.lang.Byte" />
+          <option name="sqlDataType" value="tinyint" />
+        </ConfigurableJPAMapping>
+        <ConfigurableJPAMapping>
+          <option name="family" value="MySQL" />
+          <option name="sqlDataType" value="varchar" />
+        </ConfigurableJPAMapping>
+        <ConfigurableJPAMapping>
+          <option name="javaColumnDefinition" value="CHAR" />
+          <option name="sqlDataType" value="CHAR" />
+        </ConfigurableJPAMapping>
+        <ConfigurableJPAMapping>
+          <option name="javaDataType" value="java.sql.Date" />
+          <option name="sqlDataType" value="DATE" />
+        </ConfigurableJPAMapping>
+        <ConfigurableJPAMapping>
+          <option name="javaDataType" value="Float" />
+          <option name="sqlDataType" value="FLOAT" />
+        </ConfigurableJPAMapping>
+        <ConfigurableJPAMapping>
+          <option name="javaDataType" value="Long" />
+          <option name="sqlDataType" value="NUMBER" />
+        </ConfigurableJPAMapping>
+        <ConfigurableJPAMapping>
+          <option name="javaDataType" value="java.sql.Timestamp" />
+          <option name="sqlDataType" value="TIMESTAMP" />
+        </ConfigurableJPAMapping>
+        <ConfigurableJPAMapping />
+        <ConfigurableJPAMapping>
+          <option name="family" value="PostgreSQL" />
+          <option name="javaDataType" value="Long" />
+          <option name="sqlDataType" value="bigint" />
+        </ConfigurableJPAMapping>
+        <ConfigurableJPAMapping>
+          <option name="family" value="PostgreSQL" />
+          <option name="javaDataType" value="Boolean" />
+          <option name="sqlDataType" value="boolean" />
+        </ConfigurableJPAMapping>
+        <ConfigurableJPAMapping>
+          <option name="family" value="PostgreSQL" />
+          <option name="javaDataType" value="java.sql.Date" />
+          <option name="sqlDataType" value="date" />
+        </ConfigurableJPAMapping>
+        <ConfigurableJPAMapping>
+          <option name="family" value="PostgreSQL" />
+          <option name="javaDataType" value="Long" />
+          <option name="sqlDataType" value="integer" />
+        </ConfigurableJPAMapping>
+        <ConfigurableJPAMapping>
+          <option name="family" value="PostgreSQL" />
+          <option name="sqlDataType" value="varchar" />
+        </ConfigurableJPAMapping>
+      </list>
+    </option>
+  </component>
+  <component name="ProjectRootManager" version="2" languageLevel="JDK_24" project-jdk-name="BSP_Home" project-jdk-type="JavaSDK" />
+</project>

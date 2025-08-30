@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project 
+xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <modelVersion>4.0.0</modelVersion>
+    <name>test-runner_2.13</name>
+    <groupId>org.virtuslab.scala-cli</groupId>
+    <artifactId>test-runner_2.13</artifactId>
+    <packaging>jar</packaging>
+    <description>test-runner</description>
+    <version>1.8.1</version>
+    <url>https://github.com/VirtusLab/scala-cli</url>
+    <licenses>
+        <license>
+            <name>Apache-2.0</name>
+            <url>https://spdx.org/licenses/Apache-2.0.html</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+    <scm>
+        <connection>scm:git:git://github.com/VirtusLab/scala-cli.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com:VirtusLab/scala-cli.git</developerConnection>
+        <url>https://github.com/VirtusLab/scala-cli</url>
+    </scm>
+    <developers>
+        <developer>
+            <id>alexarchambault</id>
+            <name>Alex Archambault</name>
+            <url>https://github.com/alexarchambault</url>
+        </developer>
+        <developer>
+            <id>lwronski</id>
+            <name>Łukasz Wroński</name>
+            <url>https://github.com/lwronski</url>
+        </developer>
+        <developer>
+            <id>romanowski</id>
+            <name>Krzysztof Romanowski</name>
+            <url>https://github.com/romanowski</url>
+        </developer>
+        <developer>
+            <id>Gedochao</id>
+            <name>Piotr Chabelski</name>
+            <url>https://github.com/Gedochao</url>
+        </developer>
+        <developer>
+            <id>MaciejG604</id>
+            <name>Maciej Gajek</name>
+            <url>https://github.com/MaciejG604</url>
+        </developer>
+    </developers>
+    <dependencies>
+        <dependency>
+            <groupId>org.ow2.asm</groupId>
+            <artifactId>asm</artifactId>
+            <version>9.8</version>
+        </dependency>
+        <dependency>
+            <groupId>org.scala-lang.modules</groupId>
+            <artifactId>scala-collection-compat_2.13</artifactId>
+            <version>2.13.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.scala-sbt</groupId>
+            <artifactId>test-interface</artifactId>
+            <version>1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-library</artifactId>
+            <version>2.13.16</version>
+        </dependency>
+    </dependencies>
+</project>

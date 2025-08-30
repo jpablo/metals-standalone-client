@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "metal-standalone-client-metals": {
+      "url": "http://localhost:55028/sse"
+    }
+  }
+}

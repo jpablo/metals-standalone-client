@@ -1,0 +1,11 @@
+[warn] -- [E198] Unused Symbol Warning: /Users/jpablo/proyectos/experimentos/metal-standalone-client/src/main/scala/scala/meta/metals/standalone/LspClientK.scala:12:43 
+[warn] 12 |import scala.concurrent.{ExecutionContext, Future, Promise}
+[warn]    |                                           ^^^^^^
+[warn]    |                                           unused import
+[warn] -- [E092] Pattern Match Unchecked Warning: /Users/jpablo/proyectos/experimentos/metal-standalone-client/src/main/scala/scala/meta/metals/standalone/LspClientK.scala:532:11 
+[warn] 532 |      case Result.Success(_) =>
+[warn]     |           ^
+[warn]     |the type test for kyo.Result[Any, Any] cannot be checked at runtime because it refers to an abstract type member or type parameter
+[warn]     |
+[warn]     | longer explanation available when compiling with `-explain`
+[warn] two warnings found

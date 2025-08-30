@@ -1,0 +1,11 @@
+<component name="libraryTable">
+  <library name="BSP: circe-core_3-0.14.14" external-system-id="BSP">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/circe/circe-core_3/0.14.14/circe-core_3-0.14.14.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="jar://$USER_HOME$/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/circe/circe-core_3/0.14.14/circe-core_3-0.14.14-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>

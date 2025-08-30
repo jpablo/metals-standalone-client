@@ -20,6 +20,11 @@
 //> using option "-unchecked" 
 //> using option "-feature"
 //> using option "-Wunused:imports"
+// Recommended strictness flags
+//> using option "-Wvalue-discard"
+//> using option "-Wnonunit-statement"
+//> using option "-Wconf:msg=(unused.*value|discarded.*value|pure.*statement):error"
+//> using option "-language:strictEquality"
 
 // Java options (removed -Xlint:all as it's for javac, not java runtime)
 

@@ -1,0 +1,22 @@
+[info] Main Scala API documentation to /Users/jpablo/proyectos/experimentos/metal-standalone-client/target/scala-3.7.1/api...
+[debug] Returning already retrieved and compiled bridge: /Users/jpablo/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala3-sbt-bridge/3.7.1/scala3-sbt-bridge-3.7.1.jar.
+[debug] Calling Dottydoc with arguments  (ScaladocInterface):
+[debug] 	-d
+[debug] 	/Users/jpablo/proyectos/experimentos/metal-standalone-client/target/scala-3.7.1/api
+[debug] 	-deprecation
+[debug] 	-unchecked
+[debug] 	-feature
+[debug] 	-Wunused:imports
+[debug] 	-project
+[debug] 	metals-standalone-client
+[debug] 	-classpath
+[debug] 	/Users/jpablo/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala3-library_3/3.7.1/scala3-library_3-3.7.1.jar:/Users/jpablo/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/circe/circe-core_3/0.14.14/circe-core_3-0.14.14.jar:/Users/jpablo/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/circe/circe-parser_3/0.14.14/circe-parser_3-0.14.14.jar:/Users/jpablo/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/github/scopt/scopt_3/4.1.0/scopt_3-4.1.0.jar:/Users/jpablo/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/softwaremill/sttp/client3/core_3/3.11.0/core_3-3.11.0.jar:/Users/jpablo/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/softwaremill/sttp/client3/circe_3/3.11.0/circe_3-3.11.0.jar:/Users/jpablo/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala-library/2.13.16/scala-library-2.13.16.jar:/Users/jpablo/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/circe/circe-numbers_3/0.14.14/circe-numbers_3-0.14.14.jar:/Users/jpablo/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/typelevel/cats-core_3/2.13.0/cats-core_3-2.13.0.jar:/Users/jpablo/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/circe/circe-jawn_3/0.14.14/circe-jawn_3-0.14.14.jar:/Users/jpablo/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/softwaremill/sttp/model/core_3/1.7.11/core_3-1.7.11.jar:/Users/jpablo/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/softwaremill/sttp/shared/core_3/1.3.22/core_3-1.3.22.jar:/Users/jpablo/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/softwaremill/sttp/shared/ws_3/1.3.22/ws_3-1.3.22.jar:/Users/jpablo/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/softwaremill/sttp/client3/json-common_3/3.11.0/json-common_3-3.11.0.jar:/Users/jpablo/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/typelevel/cats-kernel_3/2.13.0/cats-kernel_3-2.13.0.jar:/Users/jpablo/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/typelevel/jawn-parser_3/1.6.0/jawn-parser_3-1.6.0.jar
+[debug] 	/Users/jpablo/proyectos/experimentos/metal-standalone-client/target/scala-3.7.1/classes/scala/meta/metals/standalone/LspClient.tasty
+[debug] 	/Users/jpablo/proyectos/experimentos/metal-standalone-client/target/scala-3.7.1/classes/scala/meta/metals/standalone/Main.tasty
+[debug] 	/Users/jpablo/proyectos/experimentos/metal-standalone-client/target/scala-3.7.1/classes/scala/meta/metals/standalone/McpMonitor.tasty
+[debug] 	/Users/jpablo/proyectos/experimentos/metal-standalone-client/target/scala-3.7.1/classes/scala/meta/metals/standalone/MetalsClient.tasty
+[debug] 	/Users/jpablo/proyectos/experimentos/metal-standalone-client/target/scala-3.7.1/classes/scala/meta/metals/standalone/MetalsLauncher.tasty
+[debug] 	/Users/jpablo/proyectos/experimentos/metal-standalone-client/target/scala-3.7.1/classes/scala/meta/metals/standalone/MetalsLight.tasty
+[warn] Flag -classpath set repeatedly
+[warn] one warning found
+[info] Main Scala API documentation successful.

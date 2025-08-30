@@ -1,0 +1,7 @@
+#Successful Tests
+#Fri Jun 27 10:31:28 PDT 2025
+scala.meta.metals.standalone.LspClientTest=1751045486185
+scala.meta.metals.standalone.MetalsClientTest=1751045486009
+scala.meta.metals.standalone.McpMonitorTest=1751045488272
+scala.meta.metals.standalone.MainTest=1751045485889
+scala.meta.metals.standalone.MetalsLauncherTest=1751045486925

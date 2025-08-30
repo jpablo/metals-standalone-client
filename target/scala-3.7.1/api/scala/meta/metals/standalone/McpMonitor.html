@@ -1,0 +1,160 @@
+<!DOCTYPE html><html data-pathToRoot="../../../../" data-rawLocation="scala/meta/metals/standalone/McpMonitor" data-dynamicSideMenu="false"><head><meta charset="utf-8"></meta><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"></meta><title>McpMonitor</title><link rel="shortcut icon" type="image/x-icon" href="../../../../favicon.ico"></link><script type="text/javascript" src="../../../../scripts/theme.js"></script><script type="text/javascript" src="../../../../scripts/searchData.js" defer="true"></script><script type="text/javascript" src="../../../../scripts/scastieConfiguration.js" defer="true"></script><link rel="stylesheet" href="../../../../styles/theme/bundle.css"></link><link rel="stylesheet" href="../../../../styles/theme/components/bundle.css"></link><link rel="stylesheet" href="../../../../styles/theme/components/button/bundle.css"></link><link rel="stylesheet" href="../../../../styles/theme/layout/bundle.css"></link><link rel="stylesheet" href="../../../../styles/nord-light.css"></link><link rel="stylesheet" href="../../../../styles/dotty-icons.css"></link><link rel="stylesheet" href="../../../../styles/filter-bar.css"></link><link rel="stylesheet" href="../../../../styles/code-snippets.css"></link><link rel="stylesheet" href="../../../../styles/searchbar.css"></link><link rel="stylesheet" href="../../../../styles/social-links.css"></link><link rel="stylesheet" href="../../../../styles/versions-dropdown.css"></link><link rel="stylesheet" href="../../../../styles/content-contributors.css"></link><link rel="stylesheet" href="../../../../styles/fontawesome.css"></link><script type="text/javascript" src="../../../../hljs/highlight.pack.js" defer="true"></script><script type="text/javascript" src="../../../../scripts/hljs-scala3.js" defer="true"></script><script type="text/javascript" src="../../../../scripts/ux.js" defer="true"></script><script type="text/javascript" src="../../../../scripts/common/component.js" defer="true"></script><script type="text/javascript" src="../../../../scripts/common/utils.js" defer="true"></script><script type="text/javascript" src="../../../../scripts/components/FilterBar.js" defer="true"></script><script type="text/javascript" src="../../../../scripts/components/DocumentableList.js" defer="true"></script><script type="text/javascript" src="../../../../scripts/components/Input.js" defer="true"></script><script type="text/javascript" src="../../../../scripts/components/FilterGroup.js" defer="true"></script><script type="text/javascript" src="../../../../scripts/components/Filter.js" defer="true"></script><script type="text/javascript" src="../../../../scripts/scaladoc-scalajs.js" defer="true"></script><script type="text/javascript" src="../../../../scripts/contributors.js" defer="true"></script><script type="text/javascript" src="https://code.jquery.com/jquery-3.5.1.min.js" defer="true"></script><script type="text/javascript" src="https://d3js.org/d3.v6.min.js" defer="true"></script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/graphlib-dot@0.6.2/dist/graphlib-dot.min.js" defer="true"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/dagre-d3/0.6.1/dagre-d3.min.js" defer="true"></script><script type="text/javascript" src="https://scastie.scala-lang.org/embedded.js" defer="true"></script><script type="text/javascript" src="../../../../scripts/data.js" defer="true"></script><link rel="stylesheet" href="../../../../styles/apistyles.css"></link><script>var pathToRoot = "../../../../";</script></head><body><div id=""><div id="header" class="body-small"><div class="header-container-left"><a href="../../../../" class="logo-container"><span class="project-name h300">metals-standalone-client</span></a><span onclick="dropdownHandler(event)" class="text-button with-arrow" id="dropdown-trigger"><a></a></span><div id="version-dropdown" class="dropdown-menu"></div></div><div class="header-container-right"><button id="search-toggle" class="icon-button"></button><span id="theme-toggle" class="icon-button"></span><span id="mobile-menu-toggle" class="icon-button hamburger"></span></div></div><div id="mobile-menu"><div class="mobile-menu-header body-small"><span class="mobile-menu-logo"><span class="project-name h300">metals-standalone-client</span></span><button id="mobile-menu-close" class="icon-button close"></button></div><div class="mobile-menu-container body-medium"><input id="mobile-scaladoc-searchbar-input" class="scaladoc-searchbar-input" type="search" placeholder="Find anything"></input><span id="mobile-theme-toggle" class="mobile-menu-item mode"></span></div></div><span id="mobile-sidebar-toggle" class="floating-button"></span><div id="leftColumn" class="body-small"><div class="switcher-container"><a id="api-nav-button" class="switcher h100 selected" href="../../../../index.html">API</a></div><nav id="api-nav" class="side-menu"><div class="ni n0 expanded"><span class="nh h100 expanded cs"><button class="ar icon-button expanded"></button><a href="../standalone.html"><span class="micon pa"></span><span>scala.meta.metals.standalone</span></a></span><div class="ni n1 "><span class="nh "><a href="LspClient.html"><span class="micon cl"></span><span>LspClient</span></a></span></div><div class="ni n1"><span class="nh "><button class="ar icon-button "></button><a href="Main$.html"><span class="micon ob"></span><span>Main</span></a></span><div class="ni n2 "><span class="nh "><a href="Main$$Config.html"><span class="micon cl"></span><span>Config</span></a></span></div></div><div class="ni n1 expanded"><span class="nh h100 selected"><a href="#"><span class="micon cl"></span><span>McpMonitor</span></a></span></div><div class="ni n1 "><span class="nh "><a href="MetalsClient.html"><span class="micon cl"></span><span>MetalsClient</span></a></span></div><div class="ni n1"><span class="nh "><button class="ar icon-button "></button><a href="MetalsLauncher.html"><span class="micon cl"></span><span>MetalsLauncher</span></a></span><div class="ni n2"><span class="nh "><button class="ar icon-button "></button><a href="MetalsLauncher$MetalsInstallation.html"><span class="micon en"></span><span>MetalsInstallation</span></a></span><div class="ni n3 "><span class="nh "><a href="MetalsLauncher$MetalsInstallation$$CoursierInstallation.html"><span class="micon cl"></span><span>CoursierInstallation</span></a></span></div><div class="ni n3 "><span class="nh "><a href="MetalsLauncher$MetalsInstallation$$SbtDevelopment.html"><span class="micon cl"></span><span>SbtDevelopment</span></a></span></div><div class="ni n3 "><span class="nh "><a href="MetalsLauncher$MetalsInstallation$$JarInstallation.html"><span class="micon cl"></span><span>JarInstallation</span></a></span></div><div class="ni n3 "><span class="nh "><a href="MetalsLauncher$MetalsInstallation$$DirectCommand.html"><span class="micon cl"></span><span>DirectCommand</span></a></span></div></div></div><div class="ni n1 "><span class="nh "><a href="MetalsLight.html"><span class="micon cl"></span><span>MetalsLight</span></a></span></div></div></nav></div><div id="footer" class="body-small"><div class="left-container">Generated with</div><div class="right-container"><div class="text"></div></div><div class="text-mobile"></div></div><div id="scaladoc-searchBar"></div><div id="main"><div class="breadcrumbs container"><a href="../../../../index.html">metals-standalone-client</a>/<a href="../standalone.html">scala.meta.metals.standalone</a>/<a href="McpMonitor.html">McpMonitor</a></div><div id="content" class="body-medium"><div><div class="cover-header">
+ <span class="icon"><span class="micon cl"></span></span>
+ <h1 class="h600 single">McpMonitor</h1>
+</div>
+<div class="fqname body-large">
+ <span>scala.meta.metals.standalone.McpMonitor</span>
+</div>
+<div class="main-signature mono-small-block">
+ <div class="signature">
+  <span class="modifiers"></span><span class="kind"><span t="k">class </span></span><a href="McpMonitor.html" t="n" class="documentableName ">McpMonitor</a>(<span t="k"></span><span t="k"></span><span data-unresolved-link="" t="n">projectPath</span>: <span data-unresolved-link="" t="t">Path</span>)(<span t="k">using </span><span t="k"></span><span data-unresolved-link="" t="n">x$2</span>: <span data-unresolved-link="" t="t">ExecutionContext</span>)
+ </div>
+</div>
+<div class="cover">
+ <div class="doc">
+  <p>Monitor and manage MCP server configuration. Watches for configuration files and tests server health.</p>
+ </div>
+ <section id="attributes">
+  <h2 class="h500">Attributes</h2>
+  <dl class="attributes">
+   <dt class="body-small">
+    Graph
+   </dt>
+   <dd class="body-medium">
+    <div id="inheritance-diagram" class="diagram-class showGraph">
+     <button type="button" class="label-only-button" onclick="zoomOut()">Reset zoom</button><button type="button" class="label-only-button" onclick="hideGraph()">Hide graph</button><button type="button" class="label-only-button" onclick="showGraph()">Show graph</button>
+     <svg id="graph"></svg>
+     <script type="text/dot" id="dot"> digraph g {
+ node0 [id=node0, label="<span style=\"color: #FFFFFF;\">class <a href=\"McpMonitor.html\" t=\"n\">McpMonitor</a></span>", class="class vertex"];
+node1 [id=node1, label="<span style=\"color: #FFFFFF;\">class <span data-unresolved-link=\"\" t=\"n\">Object</span></span>", class="class vertex"];
+node2 [id=node2, label="<span style=\"color: #FFFFFF;\">class <span data-unresolved-link=\"\" t=\"n\">Any</span></span>", class="class vertex"];
+node3 [id=node3, label="<span style=\"color: #FFFFFF;\">trait <span data-unresolved-link=\"\" t=\"n\">Matchable</span></span>", class="trait vertex"];
+
+
+ node0 -> node1;
+node1 -> node2;
+node1 -> node3;
+node3 -> node2;
+
+}
+</script>
+    </div>
+   </dd>
+   <dt class="body-small">
+    Supertypes
+   </dt>
+   <dd class="body-medium">
+    <div class="mono-small-block supertypes">
+     <div>
+      class <span data-unresolved-link="" t="n">Object</span>
+     </div>
+     <div>
+      trait <span data-unresolved-link="" t="n">Matchable</span>
+     </div>
+     <div>
+      class <span data-unresolved-link="" t="n">Any</span>
+     </div><span></span>
+    </div>
+   </dd>
+  </dl>
+ </section>
+</div>
+<section id="members-list">
+ <h2 class="h500">Members list</h2>
+ <div class="documentableFilter">
+  <div class="filtersContainer"></div><input class="filterableInput" placeholder="Filter by any phrase" data-test-id="filterBarInput" type="search"><button class="clearButton label-only-button" data-test-id="filterBarClearButton">Clear all</button>
+ </div>
+ <div class="membersList expand">
+  <div class="tabs">
+   <div class="contents">
+    <section id="Value-members">
+     <div data-togglable="Value members" class="tab expand">
+      <div class="member-group-header">
+       <h3 data-togglable="Value members" class="h400">Value members</h3>
+      </div>
+      <section id="Concrete-methods">
+       <div class="documentableList expand">
+        <div class="documentableList-expander">
+         <button class="icon-button show-content expand"></button>
+         <h4 class="groupHeader h200">Concrete methods</h4>
+        </div>
+        <div class="documentableElement" id="extractMcpUrl-8cd">
+         <div class="documentableElement-expander">
+          <div class="header monospace mono-medium">
+           <div class="signature">
+            <span class="modifiers"></span><span class="kind"><span t="k">def </span></span><a href="McpMonitor.html#extractMcpUrl-8cd" t="n" class="documentableName ">extractMcpUrl</a>(<span t="k"></span><span t="k"></span><span data-unresolved-link="" t="n">config</span>: <span data-unresolved-link="" t="t">Json</span>): <span data-unresolved-link="" t="t">Option</span>[<span data-unresolved-link="" t="t">String</span>]
+           </div>
+          </div>
+         </div>
+        </div>
+        <div class="documentableElement" id="findMcpConfig-fffff63d">
+         <div class="documentableElement-expander">
+          <div class="header monospace mono-medium">
+           <div class="signature">
+            <span class="modifiers"></span><span class="kind"><span t="k">def </span></span><a href="McpMonitor.html#findMcpConfig-fffff63d" t="n" class="documentableName ">findMcpConfig</a>(<span t="k"></span>): <span data-unresolved-link="" t="t">Option</span>[<span data-unresolved-link="" t="t">Path</span>]
+           </div>
+          </div>
+         </div>
+        </div>
+        <div class="documentableElement" id="getClaudeCommand-fffff2ca">
+         <div class="documentableElement-expander">
+          <div class="header monospace mono-medium">
+           <div class="signature">
+            <span class="modifiers"></span><span class="kind"><span t="k">def </span></span><a href="McpMonitor.html#getClaudeCommand-fffff2ca" t="n" class="documentableName ">getClaudeCommand</a>(<span t="k"></span><span t="k"></span><span data-unresolved-link="" t="n">mcpUrl</span>: <span data-unresolved-link="" t="t">String</span>): <span data-unresolved-link="" t="t">String</span>
+           </div>
+          </div>
+         </div>
+        </div>
+        <div class="documentableElement" id="monitorMcpHealth-fffffab0">
+         <div class="documentableElement-expander">
+          <div class="header monospace mono-medium">
+           <div class="signature">
+            <span class="modifiers"></span><span class="kind"><span t="k">def </span></span><a href="McpMonitor.html#monitorMcpHealth-fffffab0" t="n" class="documentableName ">monitorMcpHealth</a>(<span t="k"></span><span t="k"></span><span data-unresolved-link="" t="n">mcpUrl</span>: <span data-unresolved-link="" t="t">String</span>, <span t="k"></span><span data-unresolved-link="" t="n">checkIntervalSeconds</span>: <span data-unresolved-link="" t="t">Int</span>): <span data-unresolved-link="" t="t">Future</span>[<span data-unresolved-link="" t="t">Boolean</span>]
+           </div>
+          </div>
+         </div>
+        </div>
+        <div class="documentableElement" id="parseMcpConfig-fffff40e">
+         <div class="documentableElement-expander">
+          <div class="header monospace mono-medium">
+           <div class="signature">
+            <span class="modifiers"></span><span class="kind"><span t="k">def </span></span><a href="McpMonitor.html#parseMcpConfig-fffff40e" t="n" class="documentableName ">parseMcpConfig</a>(<span t="k"></span><span t="k"></span><span data-unresolved-link="" t="n">configPath</span>: <span data-unresolved-link="" t="t">Path</span>): <span data-unresolved-link="" t="t">Option</span>[<span data-unresolved-link="" t="t">Json</span>]
+           </div>
+          </div>
+         </div>
+        </div>
+        <div class="documentableElement" id="printConnectionInfo-571">
+         <div class="documentableElement-expander">
+          <div class="header monospace mono-medium">
+           <div class="signature">
+            <span class="modifiers"></span><span class="kind"><span t="k">def </span></span><a href="McpMonitor.html#printConnectionInfo-571" t="n" class="documentableName ">printConnectionInfo</a>(<span t="k"></span><span t="k"></span><span data-unresolved-link="" t="n">mcpUrl</span>: <span data-unresolved-link="" t="t">String</span>): <span data-unresolved-link="" t="t">Unit</span>
+           </div>
+          </div>
+         </div>
+        </div>
+        <div class="documentableElement" id="testMcpConnection-fffffab0">
+         <div class="documentableElement-expander">
+          <div class="header monospace mono-medium">
+           <div class="signature">
+            <span class="modifiers"></span><span class="kind"><span t="k">def </span></span><a href="McpMonitor.html#testMcpConnection-fffffab0" t="n" class="documentableName ">testMcpConnection</a>(<span t="k"></span><span t="k"></span><span data-unresolved-link="" t="n">url</span>: <span data-unresolved-link="" t="t">String</span>, <span t="k"></span><span data-unresolved-link="" t="n">timeoutSeconds</span>: <span data-unresolved-link="" t="t">Int</span>): <span data-unresolved-link="" t="t">Future</span>[<span data-unresolved-link="" t="t">Boolean</span>]
+           </div>
+          </div>
+         </div>
+        </div>
+        <div class="documentableElement" id="waitForMcpServer-fffff84b">
+         <div class="documentableElement-expander">
+          <div class="header monospace mono-medium">
+           <div class="signature">
+            <span class="modifiers"></span><span class="kind"><span t="k">def </span></span><a href="McpMonitor.html#waitForMcpServer-fffff84b" t="n" class="documentableName ">waitForMcpServer</a>(<span t="k"></span><span t="k"></span><span data-unresolved-link="" t="n">timeoutSeconds</span>: <span data-unresolved-link="" t="t">Int</span>): <span data-unresolved-link="" t="t">Future</span>[<span data-unresolved-link="" t="t">Option</span>[<span data-unresolved-link="" t="t">String</span>]]
+           </div>
+          </div>
+         </div>
+        </div>
+       </div>
+      </section>
+     </div>
+    </section>
+   </div>
+  </div>
+ </div>
+</section></div><div id="toc" class="body-small"><div id="toc-container"><span class="toc-title h200">In this article</span><nav class="toc-nav"><ul class="toc-list"><li><a href="#attributes">Attributes</a></li><li><a href="#members-list">Members list</a><ul><li><a href="#Value-members">Value members</a><ul><li><a href="#Concrete-methods">Concrete methods</a></li></ul></li></ul></li></ul></nav></div></div></div><div id="footer" class="body-small mobile-footer"><div class="left-container">Generated with</div><div class="right-container"><div class="text"></div></div><div class="text-mobile"></div></div></div></div></body></html>

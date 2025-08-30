@@ -191,10 +191,10 @@ class MetalsLauncherK(projectPath: Path):
           else s"Project path is not a directory: $projectPath"
         Log.error(msg).andThen(Sync.defer(false))
       else
-        isScalaProject().map { scalaLike =>
+        isScalaProject().flatMap { scalaLike =>
           if !scalaLike then
-            Log.warn("Directory does not appear to be a Scala project")
-          true
+            Log.warn("Directory does not appear to be a Scala project").andThen(Sync.defer(true))
+          else Sync.defer(true)
         }
     }
 

@@ -1,0 +1,13 @@
+[debug] Running TaskDef(scala.meta.metals.standalone.MetalsClientTest, CustomFingerprint{suite='munit.Suite'}, false, [SuiteSelector])
+[debug] Running TaskDef(scala.meta.metals.standalone.MetalsLauncherTest, CustomFingerprint{suite='munit.Suite'}, false, [SuiteSelector])
+[debug] Running TaskDef(scala.meta.metals.standalone.McpMonitorTest, CustomFingerprint{suite='munit.Suite'}, false, [SuiteSelector])
+[debug] Running TaskDef(scala.meta.metals.standalone.LspClientTest, CustomFingerprint{suite='munit.Suite'}, false, [SuiteSelector])
+[debug] Running TaskDef(scala.meta.metals.standalone.MainTest, CustomFingerprint{suite='munit.Suite'}, false, [SuiteSelector])
+[debug] Summary for munit not available.
+[info] Passed: Total 57, Failed 0, Errors 0, Passed 57
+[debug] Passed tests:
+[debug] 	scala.meta.metals.standalone.McpMonitorTest
+[debug] 	scala.meta.metals.standalone.MetalsLauncherTest
+[debug] 	scala.meta.metals.standalone.MainTest
+[debug] 	scala.meta.metals.standalone.MetalsClientTest
+[debug] 	scala.meta.metals.standalone.LspClientTest

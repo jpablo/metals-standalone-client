@@ -1,0 +1,13 @@
+[debug] Packaging /Users/jpablo/proyectos/experimentos/metal-standalone-client/target/scala-3.7.1/metals-standalone-client_3-1.6.1-SNAPSHOT-sources.jar ...
+[debug] Input file mappings:
+[debug] 	scala/meta/metals/standalone/MetalsLauncher.scala
+[debug] 	  /Users/jpablo/proyectos/experimentos/metal-standalone-client/src/main/scala/scala/meta/metals/standalone/MetalsLauncher.scala
+[debug] 	scala/meta/metals/standalone/McpMonitor.scala
+[debug] 	  /Users/jpablo/proyectos/experimentos/metal-standalone-client/src/main/scala/scala/meta/metals/standalone/McpMonitor.scala
+[debug] 	scala/meta/metals/standalone/LspClient.scala
+[debug] 	  /Users/jpablo/proyectos/experimentos/metal-standalone-client/src/main/scala/scala/meta/metals/standalone/LspClient.scala
+[debug] 	scala/meta/metals/standalone/MetalsClient.scala
+[debug] 	  /Users/jpablo/proyectos/experimentos/metal-standalone-client/src/main/scala/scala/meta/metals/standalone/MetalsClient.scala
+[debug] 	scala/meta/metals/standalone/Main.scala
+[debug] 	  /Users/jpablo/proyectos/experimentos/metal-standalone-client/src/main/scala/scala/meta/metals/standalone/Main.scala
+[debug] Done packaging.

@@ -45,7 +45,7 @@ class LspClientK(process: java.lang.Process)(using Frame):
     registerHandler("workspace/configuration", handleConfiguration)
 
   private def registerHandler(method: String, handler: Json => Option[Json]): Unit =
-    messageHandlers.put(method, handler)
+    val _ = messageHandlers.put(method, handler)
 
   def start(): Unit < Sync =
     Log.info("Starting Kyo LSP client message reader...").andThen {
@@ -116,11 +116,11 @@ class LspClientK(process: java.lang.Process)(using Frame):
       case Right(id) if pendingRequests.containsKey(id) =>
         val promise = pendingRequests.remove(id)
         cursor.downField("result").as[Json] match
-          case Right(result) => promise.complete(java.util.Optional.of(result).orElse(null))
+          case Right(result) => val _ = promise.complete(java.util.Optional.of(result).orElse(null))
           case Left(_)       =>
             cursor.downField("error").as[Json] match
-              case Right(error) => promise.completeExceptionally(new RuntimeException(s"LSP error: $error"))
-              case Left(_)      => promise.completeExceptionally(new RuntimeException("Invalid LSP response"))
+              case Right(error) => val _ = promise.completeExceptionally(new RuntimeException(s"LSP error: $error"))
+              case Left(_)      => val _ = promise.completeExceptionally(new RuntimeException("Invalid LSP response"))
       case _ =>
         cursor.downField("method").as[String] match
           case Right(method) =>

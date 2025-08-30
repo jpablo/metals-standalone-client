@@ -1,0 +1,7 @@
+{
+  "servers": {
+    "metal-standalone-client-metals": {
+      "url": "http://localhost:63404/sse"
+    }
+  }
+}

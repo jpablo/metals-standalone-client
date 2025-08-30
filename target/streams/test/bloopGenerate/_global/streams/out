@@ -1,0 +1,4 @@
+[debug] [metal-standalone-client-test] Classpath dependencies List()
+[debug] [metal-standalone-client-test] Dependencies from configurations List(metal-standalone-client)
+[debug] Bloop wrote the configuration of project 'metal-standalone-client-test' to '/Users/jpablo/proyectos/experimentos/metal-standalone-client/.bloop/metal-standalone-client-test.json'
+[success] Generated .bloop/metal-standalone-client-test.json

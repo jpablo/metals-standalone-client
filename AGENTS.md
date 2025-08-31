@@ -40,3 +40,7 @@
 - Do not commit secrets or local paths; MCP configs live in `.metals/`, `.cursor/`, or `.vscode/`.
 - Default MCP SSE endpoint runs on `http://localhost:60013`; prefer local development ports.
 - Keep changes compatible with scala-cli; avoid introducing sbt-only features.
+
+
+## Kyo documentation
+- Use this url as the reference for kyo: https://raw.githubusercontent.com/getkyo/kyo/refs/heads/main/README.md

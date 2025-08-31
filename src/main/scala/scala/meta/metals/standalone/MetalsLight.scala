@@ -3,13 +3,14 @@ package scala.meta.metals.standalone
 import kyo.*
 
 import java.nio.file.Path
+import scala.concurrent.duration.*
 import scala.concurrent.ExecutionContext
 
 /** Kyo-based runner for the standalone Metals MCP client.
   *
   * Uses Kyo-based components for full effect-based architecture.
   */
-class MetalsLight(projectPath: Path):
+class MetalsLight(projectPath: Path, initTimeout: FiniteDuration):
   implicit private val ec: ExecutionContext = ExecutionContext.global
   
   private val launcher                             = new MetalsLauncherK(projectPath)
@@ -72,7 +73,7 @@ class MetalsLight(projectPath: Path):
         lspClient.getOrElse(throw new RuntimeException("LSP client not started"))
       }
       metals <- Sync.defer {
-        val m = new MetalsClient(projectPath, client)  
+        val m = new MetalsClient(projectPath, client, initTimeout)  
         metalsClient = Some(m)
         m
       }

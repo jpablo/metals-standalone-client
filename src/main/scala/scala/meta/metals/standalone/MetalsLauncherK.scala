@@ -134,11 +134,18 @@ class MetalsLauncherK(projectPath: Path):
   private def buildCommand(installation: MetalsInstallation): Seq[String] =
     installation match
       case MetalsInstallation.CoursierInstallation(java, classpath) =>
-        Seq(java, "-cp", classpath, "scala.meta.metals.Main")
+        Seq(
+          java,
+          s"-Dmetals.client=metals-standalone-client",
+          s"-Dmetals.http=true",
+          "-cp",
+          classpath,
+          "scala.meta.metals.Main"
+        )
       case MetalsInstallation.SbtDevelopment(sbt, _) =>
         Seq(sbt, "metals/run")
       case MetalsInstallation.JarInstallation(java, jarPath) =>
-        Seq(java, "-jar", jarPath)
+        Seq(java, s"-Dmetals.client=metals-standalone-client", s"-Dmetals.http=true", "-jar", jarPath)
       case MetalsInstallation.DirectCommand(executable) =>
         Seq(executable)
 

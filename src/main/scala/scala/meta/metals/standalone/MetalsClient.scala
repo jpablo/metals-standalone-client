@@ -6,10 +6,15 @@ import io.circe.syntax.*
 import java.nio.file.Path
 import java.util.logging.Logger
 import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.*
 
 /** Minimal Metals Language Client that implements the essential LSP protocol to start Metals and enable the MCP server.
   */
-class MetalsClient(projectPath: Path, lspClient: LspClient)(using ExecutionContext):
+class MetalsClient(
+    projectPath: Path,
+    lspClient: LspClient,
+    initTimeout: FiniteDuration = 5.minutes
+)(using ExecutionContext):
   private val logger = Logger.getLogger(classOf[MetalsClient].getName)
 
   @volatile private var initialized = false
@@ -29,8 +34,8 @@ class MetalsClient(projectPath: Path, lspClient: LspClient)(using ExecutionConte
 
       // Add a timeout to avoid hanging forever
       val timeoutFuture = scala.concurrent.Future {
-        Thread.sleep(120000) // 2 minutes - allow time for large responses and project setup
-        throw new java.util.concurrent.TimeoutException("Initialize request timed out after 2 minutes")
+        Thread.sleep(initTimeout.toMillis)
+        throw new java.util.concurrent.TimeoutException(s"Initialize request timed out after ${initTimeout.toMinutes} minutes")
       }
 
       scala.concurrent.Future

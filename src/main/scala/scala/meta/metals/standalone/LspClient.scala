@@ -4,7 +4,7 @@ import io.circe.*
 import io.circe.parser.*
 import io.circe.syntax.*
 
-import java.io.{OutputStreamWriter, PrintWriter}
+import java.io.{BufferedReader, InputStreamReader, OutputStreamWriter, PrintWriter}
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{ConcurrentHashMap, ExecutorService, Executors}
@@ -22,12 +22,18 @@ class LspClient(process: Process)(using ExecutionContext):
   private val pendingRequests = new ConcurrentHashMap[Int, Promise[Json]]()
   private val messageHandlers = new ConcurrentHashMap[String, Json => Option[Json]]()
 
-  private val stdin  = new PrintWriter(new OutputStreamWriter(process.getOutputStream, StandardCharsets.UTF_8), true)
-  private val stdout = process.getInputStream
+  private val stdin   = new PrintWriter(new OutputStreamWriter(process.getOutputStream, StandardCharsets.UTF_8), true)
+  private val stdout  = process.getInputStream
+  private val stderr  = process.getErrorStream
 
   @volatile private var shutdownRequested     = false
   private val readerExecutor: ExecutorService = Executors.newSingleThreadExecutor(r =>
     val thread = new Thread(r, "lsp-reader")
+    thread.setDaemon(true)
+    thread
+  )
+  private val stderrExecutor: ExecutorService = Executors.newSingleThreadExecutor(r =>
+    val thread = new Thread(r, "lsp-stderr-reader")
     thread.setDaemon(true)
     thread
   )
@@ -62,6 +68,21 @@ class LspClient(process: Process)(using ExecutionContext):
           logger.info("LSP message reader thread started")
           promise.success(())
           readMessages()
+    )
+
+    // Drain and log stderr to avoid blocking the Metals process on a full error buffer
+    stderrExecutor.submit(
+      new Runnable:
+        def run(): Unit =
+          try
+            val reader = new BufferedReader(new InputStreamReader(stderr, StandardCharsets.UTF_8))
+            var line   = reader.readLine()
+            while line != null && !shutdownRequested do
+              logger.info(s"[metals-stderr] $line")
+              line = reader.readLine()
+          catch
+            case e: Exception if !shutdownRequested =>
+              logger.warning(s"Error reading Metals stderr: ${e.getMessage}")
     )
 
     promise.future
@@ -201,7 +222,8 @@ class LspClient(process: Process)(using ExecutionContext):
   private def sendMessage(message: Json): Unit =
     val messageStr   = message.noSpaces
     val messageBytes = messageStr.getBytes(StandardCharsets.UTF_8)
-    val header       = s"Content-Length: ${messageBytes.length}\r\n\r\n"
+    val header       =
+      s"Content-Length: ${messageBytes.length}\r\nContent-Type: application/vscode-jsonrpc; charset=utf-8\r\n\r\n"
 
     try
       stdin.print(header)
@@ -379,9 +401,11 @@ class LspClient(process: Process)(using ExecutionContext):
         Try {
           stdin.close()
           stdout.close()
+          stderr.close()
         }: Unit
 
         readerExecutor.shutdown()
+        stderrExecutor.shutdown()
 
         if process.isAlive then
           process.destroy()
@@ -395,8 +419,10 @@ class LspClient(process: Process)(using ExecutionContext):
         Try {
           stdin.close()
           stdout.close()
+          stderr.close()
         }: Unit
 
         readerExecutor.shutdown()
+        stderrExecutor.shutdown()
         process.destroyForcibly()
     }

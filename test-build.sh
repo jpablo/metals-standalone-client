@@ -14,3 +14,9 @@ echo "Running scala-cli package..."
 scala-cli --power package . --assembly -f -o metals-standalone-client
 
 echo "Build test completed successfully!"
+
+# Optional: auto-commit a build checkpoint if requested
+if [[ "${AUTO_COMMIT:-0}" == "1" ]]; then
+  echo "Auto-committing build checkpoint..."
+  ./scripts/checkpoint-commit.sh build-ok || true
+fi

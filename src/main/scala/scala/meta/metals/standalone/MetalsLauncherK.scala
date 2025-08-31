@@ -20,7 +20,7 @@ class MetalsLauncherK(projectPath: Path):
     case JarInstallation(javaExecutable: String, jarPath: String)
     case DirectCommand(executable: String)
 
-  def findMetalsInstallation()(using Frame): Option[MetalsInstallation] < (Sync & Log) =
+  def findMetalsInstallation()(using Frame): Option[MetalsInstallation] < Sync =
     for
       _ <- Log.info("Looking for Metals installation...")
       coursier <- findCoursierInstallation()
@@ -29,7 +29,7 @@ class MetalsLauncherK(projectPath: Path):
       direct <- if coursier.isEmpty && sbt.isEmpty && jar.isEmpty then findDirectCommand() else Sync.defer(None)
     yield coursier.orElse(sbt).orElse(jar).orElse(direct)
 
-  private def findCoursierInstallation()(using Frame): Option[MetalsInstallation] < (Sync & Log) =
+  private def findCoursierInstallation()(using Frame): Option[MetalsInstallation] < Sync =
     for
       coursierCommand <- findExecutable("cs").flatMap { cs =>
         if cs.isEmpty then findExecutable("coursier") else Sync.defer(cs)
@@ -48,7 +48,7 @@ class MetalsLauncherK(projectPath: Path):
           yield java.map(j => MetalsInstallation.CoursierInstallation(j, classpath))
     yield result
 
-  private def findSbtDevelopment()(using Frame): Option[MetalsInstallation] < (Sync & Log) =
+  private def findSbtDevelopment()(using Frame): Option[MetalsInstallation] < Sync =
     for
       currentDir <- Sync.defer(Paths.get(".").toAbsolutePath.normalize())
       buildSbt <- Sync.defer(currentDir.resolve("build.sbt"))
@@ -64,7 +64,7 @@ class MetalsLauncherK(projectPath: Path):
       else Sync.defer(None)
     yield result
 
-  private def findJarInstallation()(using Frame): Option[MetalsInstallation] < (Sync & Log) =
+  private def findJarInstallation()(using Frame): Option[MetalsInstallation] < Sync =
     for
       currentDir <- Sync.defer(Paths.get(".").toAbsolutePath.normalize())
       metalsTarget <- Sync.defer(currentDir.resolve("metals/target"))
@@ -86,10 +86,10 @@ class MetalsLauncherK(projectPath: Path):
       else Sync.defer(None)
     yield result
 
-  private def findDirectCommand()(using Frame): Option[MetalsInstallation] < (Sync & Log) =
+  private def findDirectCommand()(using Frame): Option[MetalsInstallation] < Sync =
     findExecutable("metals").map(_.map(MetalsInstallation.DirectCommand.apply))
 
-  private def findExecutable(name: String)(using Frame): Option[String] < (Sync & Log) =
+  private def findExecutable(name: String)(using Frame): Option[String] < Sync =
     Abort.run {
       Process.Command("which", name)
         .text
@@ -99,7 +99,7 @@ class MetalsLauncherK(projectPath: Path):
         }
     }.map(_.getOrElse(None))
 
-  private def findJavaExecutable()(using Frame): Option[String] < (Sync & Log) =
+  private def findJavaExecutable()(using Frame): Option[String] < Sync =
     System.env[String]("JAVA_HOME").map { javaHome =>
       javaHome.map { home =>
         val javaPath = Paths.get(home, "bin", "java")
@@ -110,7 +110,7 @@ class MetalsLauncherK(projectPath: Path):
       else findExecutable("java")
     }
 
-  def launchMetals()(using Frame): Process < (Sync & Log & Abort[Throwable]) =
+  def launchMetals()(using Frame): Process < (Sync & Abort[Throwable]) =
     for
       installation <- findMetalsInstallation().map {
         case Some(inst) => inst
@@ -147,7 +147,7 @@ class MetalsLauncherK(projectPath: Path):
       case MetalsInstallation.SbtDevelopment(_, repoDir) => repoDir
       case _ => projectPath
 
-  def isScalaProject()(using Frame): Boolean < (Sync & Log) =
+  def isScalaProject()(using Frame): Boolean < Sync =
     val scalaIndicators = Seq(
       "build.sbt",
       "Build.scala",
@@ -157,7 +157,7 @@ class MetalsLauncherK(projectPath: Path):
       "project.scala" // Scala CLI
     )
 
-    def checkIndicators(): Boolean < (Sync & Log) =
+    def checkIndicators(): Boolean < Sync =
       scalaIndicators.foldLeft(Sync.defer(false)) { (acc, indicator) =>
         acc.flatMap { found =>
           if found then Sync.defer(true)
@@ -186,7 +186,7 @@ class MetalsLauncherK(projectPath: Path):
       else Sync.defer(true)
     }
 
-  def validateProject()(using Frame): Boolean < (Sync & Log & Abort[Throwable]) =
+  def validateProject()(using Frame): Boolean < (Sync & Abort[Throwable]) =
     if !Files.exists(projectPath) then
       Abort.fail(new RuntimeException(s"Project path does not exist: $projectPath"))
     else if !Files.isDirectory(projectPath) then
@@ -199,7 +199,7 @@ class MetalsLauncherK(projectPath: Path):
           Sync.defer(true)
       }
 
-  def shutdown(process: Process)(using Frame): Unit < (Sync & Log) =
+  def shutdown(process: Process)(using Frame): Unit < Sync =
     for
       _ <- Log.debug("Shutting down Metals process...")
       _ <- process.destroy

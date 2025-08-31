@@ -9,16 +9,17 @@ import java.util.logging.{Logger as JULLogger, Level as JULLevel}
   * This application launches Metals language server in minimal mode and enables the MCP server for AI assistant
   * integration without requiring a full IDE client like VS Code or Cursor.
   */
-object Main:
+import kyo.*
+
+object Main extends KyoApp:
 
   case class Config(
       projectPath: Path = Paths.get(".").toAbsolutePath.normalize(),
       verbose: Boolean = false
   )
 
-  def main(args: Array[String]): Unit =
-    import kyo.*
-    val config = parseArgs(args)
+  run {
+    val config = parseArgs(args.toList)
     val logName = "metals-standalone"
     // Configure Java Platform Logging (JUL) levels to match verbosity
     val juLevel = if config.verbose then JULLevel.FINE else JULLevel.INFO
@@ -27,16 +28,15 @@ object Main:
     root.getHandlers.foreach(_.setLevel(juLevel))
     JULLogger.getLogger(logName).setLevel(juLevel)
 
-    // Bridge Kyo Log to console and run the effect unsafely at program entry
+    // Bridge Kyo Log and run the effect under a live logger
     val level = if config.verbose then Log.Level.debug else Log.Level.info
-    import kyo.AllowUnsafe.embrace.danger
-    val program = Log.withConsoleLogger(logName, level) {
+    Log.withConsoleLogger(logName, level) {
       new MetalsLight(config.projectPath).run()
     }
-    val _ = Sync.Unsafe.run(program)
+  }
 
-  private def parseArgs(args: Array[String]): Config =
-    args.toList match
+  private def parseArgs(args: List[String]): Config =
+    args match
       case Nil                              => Config()
       case "--help" :: _ | "-h" :: _        =>
         printUsage()

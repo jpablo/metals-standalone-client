@@ -4,22 +4,20 @@ import kyo.*
 
 import java.nio.file.Path
 import scala.concurrent.ExecutionContext
-import java.lang.{Process => JProcess}
 
 /** Kyo-based runner for the standalone Metals MCP client.
   *
-  * Uses the working Future-based components and bridges them to Kyo via Async.fromFuture.
-  * This approach maintains the robust error handling and lifecycle management from the
-  * main branch while keeping the Kyo interface.
+  * Uses Kyo-based components for full effect-based architecture.
   */
 class MetalsLight(projectPath: Path):
   implicit private val ec: ExecutionContext = ExecutionContext.global
   
-  private val launcher                             = new MetalsLauncher(projectPath)
+  private val launcher                             = new MetalsLauncherK(projectPath)
+  private var metalsProcess: Option[Process]       = None
   private var lspClient: Option[LspClient]         = None
   private var metalsClient: Option[MetalsClient]   = None
 
-  def run()(using Frame): Unit < (Async & Abort[Throwable] & Scope) =
+  def run()(using Frame): Unit < (Async & Abort[Throwable] & Scope & Log) =
     Abort.catching[Throwable] {
       Scope.ensure {
         Sync.defer(shutdown())
@@ -28,7 +26,7 @@ class MetalsLight(projectPath: Path):
       }
     }
 
-  private def startApplication()(using Frame): Unit < (Async & Abort[Throwable]) =
+  private def startApplication()(using Frame): Unit < (Async & Abort[Throwable] & Log) =
     for
       _ <- Sync.defer(println("🚀 Starting Metals standalone MCP client..."))
       _ <- validateProject()
@@ -39,27 +37,28 @@ class MetalsLight(projectPath: Path):
       _ <- startMcpMonitoring()
     yield ()
 
-  private def validateProject()(using Frame): Unit < (Async & Abort[Throwable]) =
-    Async.fromFuture {
-      scala.concurrent.Future {
-        if !launcher.validateProject() then
-          throw new RuntimeException("❌ Project validation failed")
-      }
+  private def validateProject()(using Frame): Unit < (Async & Abort[Throwable] & Log) =
+    launcher.validateProject().map { valid =>
+      if !valid then
+        throw new RuntimeException("❌ Project validation failed")
     }
 
-  private def launchMetals()(using Frame): JProcess < (Async & Abort[Throwable]) =
-    Async.fromFuture {
-      scala.concurrent.Future {
-        launcher.launchMetals() match
-          case Some(process) => process
-          case None => throw new RuntimeException("❌ Failed to launch Metals")
-      }
-    }
-
-  private def startLspClient(process: JProcess)(using Frame): Unit < (Async & Abort[Throwable]) =
+  private def launchMetals()(using Frame): Process < (Async & Abort[Throwable] & Log) =
     for
+      process <- launcher.launchMetals()
+      _ <- Sync.defer { metalsProcess = Some(process) }
+    yield process
+
+  private def startLspClient(process: Process)(using Frame): Unit < (Async & Abort[Throwable]) =
+    for
+      jProcess <- Sync.defer {
+        // Access the underlying JProcess - this is needed until LspClient is also ported to Kyo
+        val field = process.getClass.getDeclaredField("process")
+        field.setAccessible(true)
+        field.get(process).asInstanceOf[java.lang.Process]
+      }
       client <- Sync.defer {
-        val c = new LspClient(process)
+        val c = new LspClient(jProcess)
         lspClient = Some(c)
         c
       }
@@ -113,8 +112,14 @@ class MetalsLight(projectPath: Path):
         java.lang.System.err.println(s"Error shutting down LSP client: ${e.getMessage}")
     }
 
-    try launcher.shutdown()
-    catch case e: Exception =>
-      java.lang.System.err.println(s"Error shutting down launcher: ${e.getMessage}")
+    metalsProcess.foreach { process =>
+      try 
+        // Run the shutdown through the Frame/effects system
+        import kyo.AllowUnsafe.embrace.danger
+        val shutdownEffect = launcher.shutdown(process)
+        val _ = Sync.Unsafe.run(Log.let(Log.live)(shutdownEffect))
+      catch case e: Exception =>
+        java.lang.System.err.println(s"Error shutting down Metals process: ${e.getMessage}")
+    }
 
     println("👋 Goodbye!")

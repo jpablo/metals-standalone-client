@@ -28,7 +28,7 @@ object Main extends kyo.KyoApp:
     root.getHandlers.foreach(_.setLevel(juLevel))
     JULLogger.getLogger(logName).setLevel(juLevel)
 
-    // Use Kyo console logger at the chosen level
+    // Use Kyo console logger at the chosen level  
     val level = if config.verbose then Log.Level.debug else Log.Level.info
     Log.withConsoleLogger(logName, level) {
       new MetalsLight(config.projectPath).run()

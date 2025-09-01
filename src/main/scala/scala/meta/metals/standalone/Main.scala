@@ -17,7 +17,7 @@ object Main extends KyoApp:
   case class Config(
       projectPath: Path = Paths.get(".").toAbsolutePath.normalize(),
       verbose: Boolean = false,
-      initTimeout: FiniteDuration = 5.minutes
+      initTimeout: kyo.Duration = 5.minutes
   )
 
   run {
@@ -39,11 +39,11 @@ object Main extends KyoApp:
 
   private def parseArgs(args: List[String]): Config =
     // allow override via env var METALS_INIT_TIMEOUT_SEC if flag not provided
-    val defaultTimeout = scala.concurrent.duration.FiniteDuration(5, scala.concurrent.duration.MINUTES)
+    val defaultTimeout = 5.minutes
     val envTimeout = sys.env
       .get("METALS_INIT_TIMEOUT_SEC")
       .flatMap(s => scala.util.Try(s.toLong).toOption)
-      .map(secs => scala.concurrent.duration.FiniteDuration(secs, scala.concurrent.duration.SECONDS))
+      .map(_.seconds)
     args match
       case Nil                              => Config(initTimeout = envTimeout.getOrElse(defaultTimeout))
       case "--help" :: _ | "-h" :: _        =>
@@ -54,7 +54,7 @@ object Main extends KyoApp:
       case "--init-timeout" :: value :: tail =>
         val base = parseArgs(tail)
         val secs = scala.util.Try(value.toLong).toOption
-        val fd   = secs.map(v => scala.concurrent.duration.FiniteDuration(v, scala.concurrent.duration.SECONDS))
+        val fd   = secs.map(_.seconds)
         base.copy(initTimeout = fd.orElse(envTimeout).getOrElse(base.initTimeout))
       case "--verbose" :: path :: Nil       =>
         Config(Paths.get(path).toAbsolutePath.normalize(), verbose = true, initTimeout = envTimeout.getOrElse(defaultTimeout))
@@ -66,7 +66,7 @@ object Main extends KyoApp:
         Config(Paths.get(path).toAbsolutePath.normalize(), verbose = true, initTimeout = envTimeout.getOrElse(defaultTimeout))
       case path :: "--init-timeout" :: value :: Nil =>
         val secs = scala.util.Try(value.toLong).toOption
-        val fd   = secs.map(v => scala.concurrent.duration.FiniteDuration(v, scala.concurrent.duration.SECONDS))
+        val fd   = secs.map(_.seconds)
         Config(Paths.get(path).toAbsolutePath.normalize(), initTimeout = fd.orElse(envTimeout).getOrElse(defaultTimeout))
       case path :: Nil                      =>
         Config(Paths.get(path).toAbsolutePath.normalize(), initTimeout = envTimeout.getOrElse(defaultTimeout))

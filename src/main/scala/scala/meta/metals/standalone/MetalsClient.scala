@@ -2,84 +2,69 @@ package scala.meta.metals.standalone
 
 import io.circe.*
 import io.circe.syntax.*
+import kyo.*
 
 import java.nio.file.Path
 import java.util.logging.Logger
 import scala.concurrent.{ExecutionContext, Future}
-import scala.concurrent.duration.*
 
 /** Minimal Metals Language Client that implements the essential LSP protocol to start Metals and enable the MCP server.
   */
 class MetalsClient(
     projectPath: Path,
-    lspClient: LspClient,
-    initTimeout: FiniteDuration = 1.minutes
+    lspClient:   LspClient,
+    initTimeout: kyo.Duration = 1.minutes
 )(using ExecutionContext):
   private val logger = Logger.getLogger(classOf[MetalsClient].getName)
 
   @volatile private var initialized = false
 
-  def initialize(): Future[Boolean] =
+  def initialize() =
     if initialized then
-      logger.info("Already initialized, returning success")
-      Future.successful(true)
-    else
-      logger.info("Initializing Metals language server...")
-
-      val initParams = createInitializeParams()
-      logger.fine("Created initialization parameters")
-
-      logger.fine("Sending initialize request to Metals...")
-      val initializeFuture = lspClient.sendRequest("initialize", Some(initParams))
-
-      // Add a timeout to avoid hanging forever
-      val timeoutFuture = scala.concurrent.Future {
-        Thread.sleep(initTimeout.toMillis)
-        throw new java.util.concurrent.TimeoutException(
-          s"Initialize request timed out after ${initTimeout.toMinutes} minutes"
-        )
+      Log.info("Already initialized, returning success").andThen {
+        Sync.defer(true)
       }
+    else
+      for
+        _ <- Log.info("Initializing Metals language server...")
+        initParams = createInitializeParams()
+        _ <- Log.debug("Created initialization parameters")
+        _ <- Log.debug("Sending initialize request to Metals...")
+        initializeFuture = Async.fromFuture(lspClient.sendRequest("initialize", Some(initParams)))
+        result <- Async.timeout(initTimeout)(initializeFuture)
+        _      <- Log.debug("Received initialize response from Metals")
+        hasCapabilities = result.hcursor.downField("capabilities").succeeded
 
-      scala.concurrent.Future
-        .firstCompletedOf(Seq(initializeFuture, timeoutFuture))
-        .map { result =>
-          logger.fine("Received initialize response from Metals")
-          val hasCapabilities = result.hcursor.downField("capabilities").succeeded
-
+        ret <-
           if hasCapabilities then
-            logger.info("Metals language server initialized successfully")
+            for
+              _ <- Log.info("Metals language server initialized successfully")
+              _ <- Log.debug("Sending initialized notification...")
+              _ = lspClient.sendNotification("initialized", Some(Json.obj()))
 
-            logger.fine("Sending initialized notification...")
-            lspClient.sendNotification("initialized", Some(Json.obj()))
-
-            // Small delay to let Metals process the initialized notification
-            Thread.sleep(500)
-            logger.fine("Configuring Metals...")
-            configureMetals()
-
-            initialized = true
-            logger.fine("Initialization complete!")
-            true
+              // Small delay to let Metals process the initialized notification
+              _ <- Async.sleep(500.millis)
+              _ <- Log.debug("Configuring Metals...")
+              _ = configureMetals()
+              _ = initialized = true
+              _ <- Log.debug("Initialization complete!")
+            yield true
           else
-            logger.severe("Failed to initialize Metals language server - no capabilities in response")
-            logger.fine(s"Response was: $result")
-            false
-        }
-        .recover { case e =>
-          logger.severe(s"Metals initialization failed: ${e.getMessage}")
-          e.printStackTrace()
-          false
-        }
+            for
+              _ <- Log.error("Failed to initialize Metals language server - no capabilities in response")
+              _ <- Log.debug(s"Response was: $result")
+            yield false
+      yield ret
 
   private def createInitializeParams(): Json =
     Json.obj(
-      "processId"             -> Json.Null,
-      "clientInfo"            -> Json.obj(
+      "processId" -> Json.Null,
+      "clientInfo" -> Json.obj(
         "name"    -> "metals-standalone-client".asJson,
         "version" -> "0.1.0".asJson
       ),
-      "rootUri"               -> projectPath.toUri.toString.asJson,
-      "workspaceFolders"      -> Json.arr(
+      "rootUri" -> projectPath.toUri.toString.asJson,
+      "workspaceFolders" -> Json.arr(
         Json.obj(
           "uri"  -> projectPath.toUri.toString.asJson,
           "name" -> projectPath.getFileName.toString.asJson
@@ -91,16 +76,16 @@ class MetalsClient(
 
   private def createClientCapabilities(): Json =
     Json.obj(
-      "workspace"    -> Json.obj(
-        "applyEdit"              -> true.asJson,
-        "configuration"          -> true.asJson,
-        "workspaceFolders"       -> true.asJson,
+      "workspace" -> Json.obj(
+        "applyEdit"        -> true.asJson,
+        "configuration"    -> true.asJson,
+        "workspaceFolders" -> true.asJson,
         "didChangeConfiguration" -> Json.obj(
           "dynamicRegistration" -> false.asJson
         )
       ),
       "textDocument" -> Json.obj(
-        "synchronization"    -> Json.obj(
+        "synchronization" -> Json.obj(
           "dynamicRegistration" -> false.asJson,
           "willSave"            -> false.asJson,
           "willSaveWaitUntil"   -> false.asJson,
@@ -114,13 +99,13 @@ class MetalsClient(
           "dataSupport"            -> false.asJson
         )
       ),
-      "window"       -> Json.obj(
-        "showMessage"      -> Json.obj(
+      "window" -> Json.obj(
+        "showMessage" -> Json.obj(
           "messageActionItem" -> Json.obj(
             "additionalPropertiesSupport" -> false.asJson
           )
         ),
-        "showDocument"     -> Json.obj(
+        "showDocument" -> Json.obj(
           "support" -> false.asJson
         ),
         "workDoneProgress" -> true.asJson
@@ -139,7 +124,7 @@ class MetalsClient(
 
   private def createInitializationOptions(): Json =
     Json.obj(
-      "compilerOptions"              -> Json.obj(
+      "compilerOptions" -> Json.obj(
         "completionCommand"                    -> "editor.action.triggerSuggest".asJson,
         "isCompletionItemDetailEnabled"        -> false.asJson,
         "isCompletionItemDocumentationEnabled" -> false.asJson,
@@ -157,9 +142,9 @@ class MetalsClient(
       "statusBarProvider"            -> "off".asJson,
       "treeViewProvider"             -> false.asJson,
       // Disable BSP-related features that might be hanging
-      "bloopEmbeddedServer"          -> false.asJson,
-      "automaticImportBuild"         -> "off".asJson,
-      "askToReconnect"               -> false.asJson
+      "bloopEmbeddedServer"  -> false.asJson,
+      "automaticImportBuild" -> "off".asJson,
+      "askToReconnect"       -> false.asJson
     )
 
   private def configureMetals(): Unit =

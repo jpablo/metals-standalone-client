@@ -10,7 +10,7 @@ import scala.concurrent.{ExecutionContext, Future}
   *
   * Uses Kyo-based components for full effect-based architecture.
   */
-class MetalsLight(projectPath: Path, initTimeout: FiniteDuration):
+class MetalsLight(projectPath: Path, initTimeout: kyo.Duration):
   implicit private val ec: ExecutionContext = ExecutionContext.global
 
   private val launcher                             = new MetalsLauncherK(projectPath)
@@ -52,7 +52,7 @@ class MetalsLight(projectPath: Path, initTimeout: FiniteDuration):
         m
       }
       _ <- Log.info("Initializing Metals language server...")
-      initialized <- Async.fromFuture(metals.initialize())
+      initialized <- metals.initialize()
       _ <- if initialized then
         Log.info("-------------- ✅ Metals language server initialized")
       else

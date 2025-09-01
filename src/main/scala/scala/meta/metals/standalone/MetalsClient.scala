@@ -19,7 +19,7 @@ class MetalsClient(
 
   @volatile private var initialized = false
 
-  def initialize() =
+  def initialize(): Boolean < (Async & Abort[Throwable]) =
     if initialized then
       Log.info("Already initialized, returning success").andThen {
         Sync.defer(true)

@@ -3,8 +3,7 @@ package scala.meta.metals.standalone
 import kyo.*
 
 import java.nio.file.Path
-import scala.concurrent.duration.*
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Kyo-based runner for the standalone Metals MCP client.
   *

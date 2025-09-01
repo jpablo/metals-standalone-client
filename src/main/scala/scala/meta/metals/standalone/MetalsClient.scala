@@ -31,20 +31,17 @@ class MetalsClient(
 
       logger.fine("Sending initialize request to Metals...")
       val initializeFuture = lspClient.sendRequest("initialize", Some(initParams))
-      println("============")
-      println(initializeFuture)
-      println(Thread.currentThread().getName)
-      println(Thread.currentThread().getState)
 
       // Add a timeout to avoid hanging forever
-//      val timeoutFuture = scala.concurrent.Future {
-//        Thread.sleep(initTimeout.toMillis)
-//        throw new java.util.concurrent.TimeoutException(s"Initialize request timed out after ${initTimeout.toMinutes} minutes")
-//      }
+      val timeoutFuture = scala.concurrent.Future {
+        Thread.sleep(initTimeout.toMillis)
+        throw new java.util.concurrent.TimeoutException(
+          s"Initialize request timed out after ${initTimeout.toMinutes} minutes"
+        )
+      }
 
-//      scala.concurrent.Future
-//        .firstCompletedOf(Seq(initializeFuture, timeoutFuture))
-      initializeFuture
+      scala.concurrent.Future
+        .firstCompletedOf(Seq(initializeFuture, timeoutFuture))
         .map { result =>
           logger.fine("Received initialize response from Metals")
           val hasCapabilities = result.hcursor.downField("capabilities").succeeded

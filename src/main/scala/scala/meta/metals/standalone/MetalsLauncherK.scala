@@ -4,7 +4,6 @@ import kyo.*
 
 import java.lang
 import java.nio.file.{Files, Path, Paths}
-import java.util.logging.Logger
 import scala.jdk.OptionConverters.*
 import scala.meta.metals.standalone.MetalsLauncher.MetalsInstallation
 
@@ -17,7 +16,6 @@ import scala.meta.metals.standalone.MetalsLauncher.MetalsInstallation
   *   - Direct command
   */
 class MetalsLauncherK(projectPath: Path):
-  private val logger = Logger.getLogger(classOf[MetalsLauncher].getName)
   private var metalsProcess: Option[java.lang.Process] = None
 
   def findMetalsInstallation(): Option[MetalsInstallation] < Sync =

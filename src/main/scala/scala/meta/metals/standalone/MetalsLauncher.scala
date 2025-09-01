@@ -5,6 +5,7 @@ import scala.jdk.CollectionConverters.*
 import scala.jdk.OptionConverters.*
 import scala.util.Try
 import java.util.logging.Logger
+import scala.meta.metals.standalone.MetalsLauncher.MetalsInstallation
 
 /** Launches and manages the Metals language server process.
   *
@@ -17,12 +18,6 @@ class MetalsLauncher(projectPath: Path):
   private val logger = Logger.getLogger(classOf[MetalsLauncher].getName)
 
   private var metalsProcess: Option[java.lang.Process] = None
-
-  enum MetalsInstallation:
-    case CoursierInstallation(javaExecutable: String, classpath: String)
-    case SbtDevelopment(sbtExecutable: String, repoDir: Path)
-    case JarInstallation(javaExecutable: String, jarPath: String)
-    case DirectCommand(executable: String)
 
   def findMetalsInstallation(): Option[MetalsInstallation] =
     findCoursierInstallation()
@@ -108,10 +103,12 @@ class MetalsLauncher(projectPath: Path):
 
     findMetalsInstallation() match
       case Some(installation) =>
-        val command = buildCommand(installation)
-        val workDir = getWorkingDirectory(installation)
+        val command = MetalsLauncher.buildCommand(installation)
+        val workDir = MetalsLauncher.getWorkingDirectory(installation, projectPath)
 
-        logger.info(s"Starting Metals: ${command.mkString(" ")}")
+//        logger.info(s"Metals installation: ${installation}")
+        logger.info(s"Starting Metals: ${command.last}")
+
 
         try
           val processBuilder = new java.lang.ProcessBuilder(command.asJava)
@@ -131,22 +128,6 @@ class MetalsLauncher(projectPath: Path):
       case None =>
         logger.severe("Could not find Metals installation")
         None
-
-  private def buildCommand(installation: MetalsInstallation): Seq[String] =
-    installation match
-      case MetalsInstallation.CoursierInstallation(java, classpath) =>
-        Seq(java, "-cp", classpath, "scala.meta.metals.Main")
-      case MetalsInstallation.SbtDevelopment(sbt, _)                =>
-        Seq(sbt, "metals/run")
-      case MetalsInstallation.JarInstallation(java, jarPath)        =>
-        Seq(java, "-jar", jarPath)
-      case MetalsInstallation.DirectCommand(executable)             =>
-        Seq(executable)
-
-  private def getWorkingDirectory(installation: MetalsInstallation): Path =
-    installation match
-      case MetalsInstallation.SbtDevelopment(_, repoDir) => repoDir
-      case _                                             => projectPath
 
   def isScalaProject(): Boolean =
     val scalaIndicators = Seq(
@@ -222,3 +203,30 @@ class MetalsLauncher(projectPath: Path):
 
       metalsProcess = None
     }
+
+object MetalsLauncher {
+  enum MetalsInstallation:
+    case CoursierInstallation(javaExecutable: String, classpath: String)
+    case SbtDevelopment(sbtExecutable: String, repoDir: Path)
+    case JarInstallation(javaExecutable: String, jarPath: String)
+    case DirectCommand(executable: String)
+
+
+  def buildCommand(installation: MetalsInstallation): Seq[String] =
+    installation match
+      case MetalsInstallation.CoursierInstallation(java, classpath) =>
+        Seq(java, "-cp", classpath, "scala.meta.metals.Main")
+      case MetalsInstallation.SbtDevelopment(sbt, _) =>
+        Seq(sbt, "metals/run")
+      case MetalsInstallation.JarInstallation(java, jarPath) =>
+        Seq(java, "-jar", jarPath)
+      case MetalsInstallation.DirectCommand(executable) =>
+        Seq(executable)
+
+  def getWorkingDirectory(installation: MetalsInstallation, projectPath: Path): Path =
+    installation match
+      case MetalsInstallation.SbtDevelopment(_, repoDir) => repoDir
+      case _                                             => projectPath
+
+
+}

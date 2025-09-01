@@ -11,6 +11,7 @@
 //> using dep "com.softwaremill.sttp.client3::core:3.11.0"
 //> using dep "com.softwaremill.sttp.client3::circe:3.11.0"
 //> using dep "io.getkyo::kyo-core:1.0-RC1"
+//> using dep "com.lihaoyi::pprint:0.9.3"
 
 // Test dependencies
 //> using test.dep "org.scalameta::munit:1.1.1"

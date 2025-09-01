@@ -4,7 +4,7 @@ import kyo.*
 
 import java.nio.file.Path
 import scala.concurrent.duration.*
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 
 /** Kyo-based runner for the standalone Metals MCP client.
   *
@@ -14,11 +14,12 @@ class MetalsLight(projectPath: Path, initTimeout: FiniteDuration):
   implicit private val ec: ExecutionContext = ExecutionContext.global
   
   private val launcher                             = new MetalsLauncherK(projectPath)
+  private val launcher2                             = new MetalsLauncher(projectPath)
   private var metalsProcess: Option[Process]       = None
   private var lspClient: Option[LspClient]         = None
   private var metalsClient: Option[MetalsClient]   = None
 
-  def run()(using Frame): Unit < (Async & Abort[Throwable] & Scope & Sync) =
+  def run(): Int < (Async & Abort[Throwable] & Scope & Sync) =
     Abort.catching[Throwable] {
       Scope.ensure {
         Sync.defer(shutdown())
@@ -27,30 +28,24 @@ class MetalsLight(projectPath: Path, initTimeout: FiniteDuration):
       }
     }
 
-  private def startApplication()(using Frame): Unit < (Async & Abort[Throwable] & Sync) =
+  private def startApplication(): Int < (Async & Abort[Throwable] & Sync) =
     for
-      _ <- Sync.defer(println("🚀 Starting Metals standalone MCP client..."))
-      _ <- validateProject()
-      _ <- Sync.defer(println("📦 Launching Metals language server..."))
-      process <- launchMetals()
-      _ <- startLspClient(process)
+      _ <- Log.info("🚀 Starting Metals standalone MCP client...")
+//      valid <- launcher.validateProject()
+      valid = launcher2.validateProject()
+      _ <- Log.info(s"${if valid then "valid" else "invalid"} configuration found")
+      _ <- Log.info("📦 Launching Metals language server...")
+//      process <- launcher.launchMetals()
+      process = launcher2.launchMetals()
+      _ <- Log.info(s"process: $process")
+//      _ <- startLspClient(process)
+      _ <- Async.fromFuture(startLspClient2(process.get))
       _ <- initializeMetals()
       _ <- startMcpMonitoring()
-    yield ()
+    yield 0
 
-  private def validateProject()(using Frame): Unit < (Async & Abort[Throwable] & Sync) =
-    launcher.validateProject().map { valid =>
-      if !valid then
-        throw new RuntimeException("❌ Project validation failed")
-    }
 
-  private def launchMetals()(using Frame): Process < (Sync & Abort[Throwable]) =
-    for
-      process <- launcher.launchMetals()
-      _ <- Sync.defer { metalsProcess = Some(process) }
-    yield process
-
-  private def startLspClient(process: Process)(using Frame): Unit < (Async & Abort[Throwable] & Sync) =
+  private def startLspClient(process: Process): Unit < (Async & Abort[Throwable] & Sync) =
     for
       jProcess <- Sync.defer {
         // Access the underlying JProcess - this is needed until LspClient is also ported to Kyo
@@ -58,34 +53,61 @@ class MetalsLight(projectPath: Path, initTimeout: FiniteDuration):
         field.setAccessible(true)
         field.get(process).asInstanceOf[java.lang.Process]
       }
+      _ <- Log.info(jProcess.toString)
       client <- Sync.defer {
         val c = new LspClient(jProcess)
         lspClient = Some(c)
         c
       }
       _ <- Async.fromFuture(client.start())
-      _ <- Sync.defer(println("🔗 Connected to Metals LSP server"))
+      _ <- Log.info("🔗 Connected to Metals LSP server")
     yield ()
 
-  private def initializeMetals()(using Frame): Unit < (Async & Abort[Throwable] & Sync) =
+  private def startLspClient2(process: java.lang.Process): Future[Unit] =
+    val c = new LspClient(process)
+    lspClient = Some(c)
+    c.start()
+
+
+  private def initializeMetals(): Unit < (Async & Abort[Throwable] & Sync) =
     for
       client <- Sync.defer {
         lspClient.getOrElse(throw new RuntimeException("LSP client not started"))
       }
+      _ = println(s"--- 0 ---- $client")
       metals <- Sync.defer {
         val m = new MetalsClient(projectPath, client, initTimeout)  
         metalsClient = Some(m)
         m
       }
-      _ <- Sync.defer(println("Initializing Metals language server..."))
+      _ <- Log.info("Initializing Metals language server...")
       initialized <- Async.fromFuture(metals.initialize())
       _ <- if initialized then
-        Sync.defer(println("✅ Metals language server initialized"))
+        Log.info("-------------- ✅ Metals language server initialized")
       else
         Abort.fail(new RuntimeException("❌ Failed to initialize Metals"))
     yield ()
 
-  private def startMcpMonitoring()(using Frame): Unit < (Async & Abort[Throwable] & Sync) =
+  private def initializeMetals2() =
+    for
+      client <- Sync.defer {
+        lspClient.getOrElse(throw new RuntimeException("LSP client not started"))
+      }
+      _ = println(s"--- 0 ---- $client")
+      metals <- Sync.defer {
+        val m = new MetalsClient(projectPath, client, initTimeout)
+        metalsClient = Some(m)
+        m
+      }
+      _ <- Log.info("Initializing Metals language server...")
+      initialized <- Async.fromFuture(metals.initialize())
+      _ <- if initialized then
+        Log.info("-------------- ✅ Metals language server initialized")
+      else
+        Abort.fail(new RuntimeException("❌ Failed to initialize Metals"))
+    yield ()
+
+  private def startMcpMonitoring(): Unit < (Async & Abort[Throwable] & Sync) =
     for
       monitor <- Sync.defer(new McpMonitor(projectPath))
       _ <- Sync.defer(println("⏳ Waiting for MCP server to start..."))

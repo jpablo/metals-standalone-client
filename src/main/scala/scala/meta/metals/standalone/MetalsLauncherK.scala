@@ -1,8 +1,11 @@
 package scala.meta.metals.standalone
 
 import kyo.*
+
 import java.nio.file.{Files, Path, Paths}
+import java.util.logging.Logger
 import scala.jdk.OptionConverters.*
+import scala.meta.metals.standalone.MetalsLauncher.MetalsInstallation
 
 /** Kyo-based launcher for the Metals language server process.
   *
@@ -13,14 +16,10 @@ import scala.jdk.OptionConverters.*
   *   - Direct command
   */
 class MetalsLauncherK(projectPath: Path):
+  private val logger = Logger.getLogger(classOf[MetalsLauncher].getName)
+  private var metalsProcess: Option[java.lang.Process] = None
 
-  enum MetalsInstallation:
-    case CoursierInstallation(javaExecutable: String, classpath: String)
-    case SbtDevelopment(sbtExecutable: String, repoDir: Path)
-    case JarInstallation(javaExecutable: String, jarPath: String)
-    case DirectCommand(executable: String)
-
-  def findMetalsInstallation()(using Frame): Option[MetalsInstallation] < Sync =
+  def findMetalsInstallation(): Option[MetalsInstallation] < Sync =
     for
       _ <- Log.info("Looking for Metals installation...")
       coursier <- findCoursierInstallation()
@@ -29,7 +28,8 @@ class MetalsLauncherK(projectPath: Path):
       direct <- if coursier.isEmpty && sbt.isEmpty && jar.isEmpty then findDirectCommand() else Sync.defer(None)
     yield coursier.orElse(sbt).orElse(jar).orElse(direct)
 
-  private def findCoursierInstallation()(using Frame): Option[MetalsInstallation] < Sync =
+
+  private def findCoursierInstallation(): Option[MetalsInstallation] < Sync =
     for
       coursierCommand <- findExecutable("cs").flatMap { cs =>
         if cs.isEmpty then findExecutable("coursier") else Sync.defer(cs)
@@ -48,7 +48,7 @@ class MetalsLauncherK(projectPath: Path):
           yield java.map(j => MetalsInstallation.CoursierInstallation(j, classpath))
     yield result
 
-  private def findSbtDevelopment()(using Frame): Option[MetalsInstallation] < Sync =
+  private def findSbtDevelopment(): Option[MetalsInstallation] < Sync =
     for
       currentDir <- Sync.defer(Paths.get(".").toAbsolutePath.normalize())
       buildSbt <- Sync.defer(currentDir.resolve("build.sbt"))
@@ -64,7 +64,7 @@ class MetalsLauncherK(projectPath: Path):
       else Sync.defer(None)
     yield result
 
-  private def findJarInstallation()(using Frame): Option[MetalsInstallation] < Sync =
+  private def findJarInstallation(): Option[MetalsInstallation] < Sync =
     for
       currentDir <- Sync.defer(Paths.get(".").toAbsolutePath.normalize())
       metalsTarget <- Sync.defer(currentDir.resolve("metals/target"))
@@ -86,10 +86,10 @@ class MetalsLauncherK(projectPath: Path):
       else Sync.defer(None)
     yield result
 
-  private def findDirectCommand()(using Frame): Option[MetalsInstallation] < Sync =
+  private def findDirectCommand(): Option[MetalsInstallation] < Sync =
     findExecutable("metals").map(_.map(MetalsInstallation.DirectCommand.apply))
 
-  private def findExecutable(name: String)(using Frame): Option[String] < Sync =
+  private def findExecutable(name: String): Option[String] < Sync =
     Abort.run {
       Process.Command("which", name)
         .text
@@ -99,7 +99,7 @@ class MetalsLauncherK(projectPath: Path):
         }
     }.map(_.getOrElse(None))
 
-  private def findJavaExecutable()(using Frame): Option[String] < Sync =
+  private def findJavaExecutable(): Option[String] < Sync =
     System.env[String]("JAVA_HOME").map { javaHome =>
       javaHome.map { home =>
         val javaPath = Paths.get(home, "bin", "java")
@@ -110,51 +110,33 @@ class MetalsLauncherK(projectPath: Path):
       else findExecutable("java")
     }
 
-  def launchMetals()(using Frame): Process < (Sync & Abort[Throwable]) =
+  def launchMetals(): Process < (Sync & Abort[Throwable]) =
     for
       installation <- findMetalsInstallation().map {
         case Some(inst) => inst
         case None => throw new RuntimeException("Could not find Metals installation")
       }
-      command = buildCommand(installation)
-      workDir = getWorkingDirectory(installation)
-      _ <- Log.info(s"Starting Metals: ${command.mkString(" ")}")
+      command = MetalsLauncher.buildCommand(installation)
+      workDir = MetalsLauncher.getWorkingDirectory(installation, projectPath)
+      _ <- Log.info(s"Starting Metals: ${command.head} ...")
+      _ <- Log.debug(s"Working directory: $workDir")
+      _ <- Log.debug("About to spawn Metals process...")
       process <- createProcess(command, workDir)
       _ <- Log.debug("Metals process started")
     yield process
 
-  private def createProcess(command: Seq[String], workDir: Path)(using Frame): Process < (Sync & Abort[Throwable]) =
+  private def createProcess(command: Seq[String], workDir: Path): Process < (Sync & Abort[Throwable]) =
     if command.isEmpty then
       Abort.fail(new RuntimeException("Empty command"))
     else
       Process.Command(command*)
         .cwd(workDir)
+//        .stdin(Process.Input.Pipe)   // allow LSP client to write to Metals stdin
+//        .stdout(Process.Output.Pipe) // read Metals stdout for LSP messages
+//        .stderr(Process.Output.Pipe) // drain Metals stderr separately
         .spawn
 
-  private def buildCommand(installation: MetalsInstallation): Seq[String] =
-    installation match
-      case MetalsInstallation.CoursierInstallation(java, classpath) =>
-        Seq(
-          java,
-          s"-Dmetals.client=metals-standalone-client",
-          s"-Dmetals.http=true",
-          "-cp",
-          classpath,
-          "scala.meta.metals.Main"
-        )
-      case MetalsInstallation.SbtDevelopment(sbt, _) =>
-        Seq(sbt, "metals/run")
-      case MetalsInstallation.JarInstallation(java, jarPath) =>
-        Seq(java, s"-Dmetals.client=metals-standalone-client", s"-Dmetals.http=true", "-jar", jarPath)
-      case MetalsInstallation.DirectCommand(executable) =>
-        Seq(executable)
-
-  private def getWorkingDirectory(installation: MetalsInstallation): Path =
-    installation match
-      case MetalsInstallation.SbtDevelopment(_, repoDir) => repoDir
-      case _ => projectPath
-
-  def isScalaProject()(using Frame): Boolean < Sync =
+  def isScalaProject(): Boolean < Sync =
     val scalaIndicators = Seq(
       "build.sbt",
       "Build.scala",
@@ -168,7 +150,7 @@ class MetalsLauncherK(projectPath: Path):
       scalaIndicators.foldLeft(Sync.defer(false)) { (acc, indicator) =>
         acc.flatMap { found =>
           if found then Sync.defer(true)
-          else 
+          else
             val path = projectPath.resolve(indicator)
             if Files.exists(path) then
               Log.debug(s"Detected Scala project via $indicator").map(_ => true)
@@ -193,7 +175,7 @@ class MetalsLauncherK(projectPath: Path):
       else Sync.defer(true)
     }
 
-  def validateProject()(using Frame): Boolean < (Sync & Abort[Throwable]) =
+  def validateProject(): Boolean < (Sync & Abort[Throwable]) =
     if !Files.exists(projectPath) then
       Abort.fail(new RuntimeException(s"Project path does not exist: $projectPath"))
     else if !Files.isDirectory(projectPath) then
@@ -206,7 +188,7 @@ class MetalsLauncherK(projectPath: Path):
           Sync.defer(true)
       }
 
-  def shutdown(process: Process)(using Frame): Unit < Sync =
+  def shutdown(process: Process): Unit < Sync =
     for
       _ <- Log.debug("Shutting down Metals process...")
       _ <- process.destroy
@@ -219,3 +201,20 @@ class MetalsLauncherK(projectPath: Path):
       else Sync.defer(())
       _ <- Log.debug("Metals process terminated")
     yield ()
+
+
+
+
+object MainLauncher extends KyoApp:
+  val path = Paths.get("/Users/jpablo/proyectos/playground/graph-explorer").toAbsolutePath.normalize()
+  val launcher = MetalsLauncherK(path)
+  run {
+    for
+      valid <- launcher.validateProject()
+      metals <- launcher.findMetalsInstallation()
+      _ = pprint.log(metals)
+      _ = println("--------------------------")
+      process <- launcher.launchMetals()
+    yield
+      process
+  }

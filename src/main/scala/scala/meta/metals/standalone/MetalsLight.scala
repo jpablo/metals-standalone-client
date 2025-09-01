@@ -12,7 +12,7 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 class MetalsLight(projectPath: Path, initTimeout: FiniteDuration):
   implicit private val ec: ExecutionContext = ExecutionContext.global
-  
+
   private val launcher                             = new MetalsLauncherK(projectPath)
   private val launcher2                             = new MetalsLauncher(projectPath)
   private var metalsProcess: Option[Process]       = None
@@ -31,37 +31,26 @@ class MetalsLight(projectPath: Path, initTimeout: FiniteDuration):
   private def startApplication(): Int < (Async & Abort[Throwable] & Sync) =
     for
       _ <- Log.info("🚀 Starting Metals standalone MCP client...")
-//      valid <- launcher.validateProject()
-      valid = launcher2.validateProject()
+      valid <- launcher.validateProject()
+//      valid = launcher2.validateProject()
       _ <- Log.info(s"${if valid then "valid" else "invalid"} configuration found")
       _ <- Log.info("📦 Launching Metals language server...")
-//      process <- launcher.launchMetals()
-      process = launcher2.launchMetals()
+      process <- launcher.launchMetals()
+//      process = launcher2.launchMetals()
       _ <- Log.info(s"process: $process")
-//      _ <- startLspClient(process)
-      _ <- Async.fromFuture(startLspClient2(process.get))
+//      _ <- Async.fromFuture(startLspClient(process))
+      _ <- Async.fromFuture(startLspClient2(process))
       _ <- initializeMetals()
       _ <- startMcpMonitoring()
     yield 0
 
 
-  private def startLspClient(process: Process): Unit < (Async & Abort[Throwable] & Sync) =
-    for
-      jProcess <- Sync.defer {
-        // Access the underlying JProcess - this is needed until LspClient is also ported to Kyo
-        val field = process.getClass.getDeclaredField("process")
-        field.setAccessible(true)
-        field.get(process).asInstanceOf[java.lang.Process]
-      }
-      _ <- Log.info(jProcess.toString)
-      client <- Sync.defer {
-        val c = new LspClient(jProcess)
-        lspClient = Some(c)
-        c
-      }
-      _ <- Async.fromFuture(client.start())
-      _ <- Log.info("🔗 Connected to Metals LSP server")
-    yield ()
+  private def startLspClient(process: Process): Future[Unit] =
+    // Access the underlying JProcess - this is needed until LspClient is also ported to Kyo
+    val field = process.getClass.getDeclaredField("process")
+    field.setAccessible(true)
+    val jProcess = field.get(process).asInstanceOf[java.lang.Process]
+    startLspClient2(jProcess)
 
   private def startLspClient2(process: java.lang.Process): Future[Unit] =
     val c = new LspClient(process)
@@ -76,7 +65,7 @@ class MetalsLight(projectPath: Path, initTimeout: FiniteDuration):
       }
       _ = println(s"--- 0 ---- $client")
       metals <- Sync.defer {
-        val m = new MetalsClient(projectPath, client, initTimeout)  
+        val m = new MetalsClient(projectPath, client, initTimeout)
         metalsClient = Some(m)
         m
       }
@@ -121,22 +110,22 @@ class MetalsLight(projectPath: Path, initTimeout: FiniteDuration):
 
   private def shutdown(): Unit =
     println("🔄 Shutting down components...")
-    
+
     // Shutdown in reverse order
     metalsClient.foreach { client =>
       try client.shutdown()
-      catch case e: Exception => 
+      catch case e: Exception =>
         java.lang.System.err.println(s"Error shutting down Metals client: ${e.getMessage}")
     }
 
     lspClient.foreach { client =>
-      try client.shutdown()  
+      try client.shutdown()
       catch case e: Exception =>
         java.lang.System.err.println(s"Error shutting down LSP client: ${e.getMessage}")
     }
 
     metalsProcess.foreach { process =>
-      try 
+      try
         // Run the shutdown through the Frame/effects system
         import kyo.AllowUnsafe.embrace.danger
         val shutdownEffect = launcher.shutdown(process)

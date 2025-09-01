@@ -2,6 +2,7 @@ package scala.meta.metals.standalone
 
 import kyo.*
 
+import java.lang
 import java.nio.file.{Files, Path, Paths}
 import java.util.logging.Logger
 import scala.jdk.OptionConverters.*
@@ -110,7 +111,7 @@ class MetalsLauncherK(projectPath: Path):
       else findExecutable("java")
     }
 
-  def launchMetals(): Process < (Sync & Abort[Throwable]) =
+  def launchMetals(): lang.Process < (Sync & Abort[Throwable]) =
     for
       installation <- findMetalsInstallation().map {
         case Some(inst) => inst
@@ -121,7 +122,8 @@ class MetalsLauncherK(projectPath: Path):
       _ <- Log.info(s"Starting Metals: ${command.head} ...")
       _ <- Log.debug(s"Working directory: $workDir")
       _ <- Log.debug("About to spawn Metals process...")
-      process <- createProcess(command, workDir)
+//      process <- createProcess(command, workDir)
+      process <- Sync.defer(createProcess2(command, workDir))
       _ <- Log.debug("Metals process started")
     yield process
 
@@ -135,6 +137,16 @@ class MetalsLauncherK(projectPath: Path):
 //        .stdout(Process.Output.Pipe) // read Metals stdout for LSP messages
 //        .stderr(Process.Output.Pipe) // drain Metals stderr separately
         .spawn
+
+  private def createProcess2(command: Seq[String], workDir: Path): lang.Process =
+    import scala.jdk.CollectionConverters.*
+
+    val processBuilder = new java.lang.ProcessBuilder(command.asJava)
+      .directory(workDir.toFile)
+      .redirectErrorStream(false)
+
+    processBuilder.start()
+
 
   def isScalaProject(): Boolean < Sync =
     val scalaIndicators = Seq(

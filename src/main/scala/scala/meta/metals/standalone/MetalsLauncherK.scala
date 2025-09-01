@@ -123,10 +123,12 @@ class MetalsLauncherK(projectPath: Path):
       _ <- Log.debug(s"Working directory: $workDir")
       _ <- Log.debug("About to spawn Metals process...")
 //      process <- createProcess(command, workDir)
-      process <- Sync.defer(createProcess2(command, workDir))
+      process <- createJavaProcess(command, workDir)
+      _ = metalsProcess = Some(process)
       _ <- Log.debug("Metals process started")
     yield process
 
+  // TODO: Kyo's Process is not working for some reason.
   private def createProcess(command: Seq[String], workDir: Path): Process < (Sync & Abort[Throwable]) =
     if command.isEmpty then
       Abort.fail(new RuntimeException("Empty command"))
@@ -138,14 +140,14 @@ class MetalsLauncherK(projectPath: Path):
 //        .stderr(Process.Output.Pipe) // drain Metals stderr separately
         .spawn
 
-  private def createProcess2(command: Seq[String], workDir: Path): lang.Process =
+  private def createJavaProcess(command: Seq[String], workDir: Path): lang.Process < Sync =
     import scala.jdk.CollectionConverters.*
 
     val processBuilder = new java.lang.ProcessBuilder(command.asJava)
       .directory(workDir.toFile)
       .redirectErrorStream(false)
 
-    processBuilder.start()
+    Sync.defer(processBuilder.start())
 
 
   def isScalaProject(): Boolean < Sync =
@@ -200,21 +202,23 @@ class MetalsLauncherK(projectPath: Path):
           Sync.defer(true)
       }
 
-  def shutdown(process: Process): Unit < Sync =
-    for
-      _ <- Log.debug("Shutting down Metals process...")
-      _ <- process.destroy
-      isAlive <- process.isAlive
-      _ <- if isAlive then
+  def shutdown(): Unit < Sync = {
+    metalsProcess match {
+      case Some(process) =>
         for
-          _ <- Log.warn("Metals process did not terminate gracefully, force killing...")
-          _ <- process.destroyForcibly
+          _ <- Log.debug("Shutting down Metals process...")
+          _ <- Sync.defer(process.destroy())
+          _ <- if process.isAlive then
+            for
+              _ <- Log.warn("Metals process did not terminate gracefully, force killing...")
+              _ <- Sync.defer(process.destroyForcibly())
+            yield ()
+          else Sync.defer(())
+          _ <- Log.debug("Metals process terminated")
         yield ()
-      else Sync.defer(())
-      _ <- Log.debug("Metals process terminated")
-    yield ()
-
-
+      case None =>
+    }
+  }
 
 
 object MainLauncher extends KyoApp:

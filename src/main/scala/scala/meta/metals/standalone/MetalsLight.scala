@@ -14,7 +14,6 @@ class MetalsLight(projectPath: Path, initTimeout: FiniteDuration):
   implicit private val ec: ExecutionContext = ExecutionContext.global
 
   private val launcher                             = new MetalsLauncherK(projectPath)
-  private val launcher2                             = new MetalsLauncher(projectPath)
   private var metalsProcess: Option[Process]       = None
   private var lspClient: Option[LspClient]         = None
   private var metalsClient: Option[MetalsClient]   = None
@@ -32,38 +31,25 @@ class MetalsLight(projectPath: Path, initTimeout: FiniteDuration):
     for
       _ <- Log.info("🚀 Starting Metals standalone MCP client...")
       valid <- launcher.validateProject()
-//      valid = launcher2.validateProject()
       _ <- Log.info(s"${if valid then "valid" else "invalid"} configuration found")
       _ <- Log.info("📦 Launching Metals language server...")
       process <- launcher.launchMetals()
-//      process = launcher2.launchMetals()
       _ <- Log.info(s"process: $process")
-//      _ <- Async.fromFuture(startLspClient(process))
-      _ <- Async.fromFuture(startLspClient2(process))
+      _ <- startLspClient(process)
       _ <- initializeMetals()
       _ <- startMcpMonitoring()
     yield 0
 
 
-  private def startLspClient(process: Process): Future[Unit] =
-    // Access the underlying JProcess - this is needed until LspClient is also ported to Kyo
-    val field = process.getClass.getDeclaredField("process")
-    field.setAccessible(true)
-    val jProcess = field.get(process).asInstanceOf[java.lang.Process]
-    startLspClient2(jProcess)
-
-  private def startLspClient2(process: java.lang.Process): Future[Unit] =
+  private def startLspClient(process: java.lang.Process): Unit < (Async & Abort[Throwable]) =
     val c = new LspClient(process)
     lspClient = Some(c)
-    c.start()
+    Async.fromFuture(c.start())
 
 
   private def initializeMetals(): Unit < (Async & Abort[Throwable] & Sync) =
     for
-      client <- Sync.defer {
-        lspClient.getOrElse(throw new RuntimeException("LSP client not started"))
-      }
-      _ = println(s"--- 0 ---- $client")
+      client <- Sync.defer(lspClient.getOrElse(throw new RuntimeException("LSP client not started")))
       metals <- Sync.defer {
         val m = new MetalsClient(projectPath, client, initTimeout)
         metalsClient = Some(m)
@@ -77,24 +63,6 @@ class MetalsLight(projectPath: Path, initTimeout: FiniteDuration):
         Abort.fail(new RuntimeException("❌ Failed to initialize Metals"))
     yield ()
 
-  private def initializeMetals2() =
-    for
-      client <- Sync.defer {
-        lspClient.getOrElse(throw new RuntimeException("LSP client not started"))
-      }
-      _ = println(s"--- 0 ---- $client")
-      metals <- Sync.defer {
-        val m = new MetalsClient(projectPath, client, initTimeout)
-        metalsClient = Some(m)
-        m
-      }
-      _ <- Log.info("Initializing Metals language server...")
-      initialized <- Async.fromFuture(metals.initialize())
-      _ <- if initialized then
-        Log.info("-------------- ✅ Metals language server initialized")
-      else
-        Abort.fail(new RuntimeException("❌ Failed to initialize Metals"))
-    yield ()
 
   private def startMcpMonitoring(): Unit < (Async & Abort[Throwable] & Sync) =
     for
@@ -124,14 +92,13 @@ class MetalsLight(projectPath: Path, initTimeout: FiniteDuration):
         java.lang.System.err.println(s"Error shutting down LSP client: ${e.getMessage}")
     }
 
-    metalsProcess.foreach { process =>
-      try
-        // Run the shutdown through the Frame/effects system
-        import kyo.AllowUnsafe.embrace.danger
-        val shutdownEffect = launcher.shutdown(process)
-        val _ = Sync.Unsafe.run(Log.let(Log.live)(shutdownEffect))
-      catch case e: Exception =>
-        java.lang.System.err.println(s"Error shutting down Metals process: ${e.getMessage}")
-    }
+    try
+      // Run the shutdown through the Frame/effects system
+      import kyo.AllowUnsafe.embrace.danger
+      val shutdownEffect = launcher.shutdown()
+      val _ = Sync.Unsafe.run(Log.let(Log.live)(shutdownEffect))
+    catch case e: Exception =>
+      java.lang.System.err.println(s"Error shutting down Metals process: ${e.getMessage}")
+
 
     println("👋 Goodbye!")

@@ -20,11 +20,7 @@ class MetalsLight(projectPath: Path, initTimeout: FiniteDuration):
 
   def run(): Int < (Async & Abort[Throwable] & Scope & Sync) =
     Abort.catching[Throwable] {
-      Scope.ensure {
-        Sync.defer(shutdown())
-      }.andThen {
-        startApplication()
-      }
+      Scope.ensure(shutdown()).andThen(startApplication())
     }
 
   private def startApplication(): Int < (Async & Abort[Throwable] & Sync) =
@@ -76,29 +72,10 @@ class MetalsLight(projectPath: Path, initTimeout: FiniteDuration):
       _ <- Async.fromFuture(monitor.monitorMcpHealth(mcpUrl)).map(_ => ())
     yield ()
 
-  private def shutdown(): Unit =
-    println("🔄 Shutting down components...")
-
-    // Shutdown in reverse order
-    metalsClient.foreach { client =>
-      try client.shutdown()
-      catch case e: Exception =>
-        java.lang.System.err.println(s"Error shutting down Metals client: ${e.getMessage}")
-    }
-
-    lspClient.foreach { client =>
-      try client.shutdown()
-      catch case e: Exception =>
-        java.lang.System.err.println(s"Error shutting down LSP client: ${e.getMessage}")
-    }
-
-    try
-      // Run the shutdown through the Frame/effects system
-      import kyo.AllowUnsafe.embrace.danger
-      val shutdownEffect = launcher.shutdown()
-      val _ = Sync.Unsafe.run(Log.let(Log.live)(shutdownEffect))
-    catch case e: Exception =>
-      java.lang.System.err.println(s"Error shutting down Metals process: ${e.getMessage}")
-
-
-    println("👋 Goodbye!")
+  private def shutdown() =
+    for
+      _ <- metalsClient.map(c => Async.fromFuture(c.shutdown())).getOrElse(Sync.defer(()))
+      _ <- lspClient.map(c => Async.fromFuture(c.shutdown())).getOrElse(Sync.defer(()))
+      _ <- launcher.shutdown()
+      _ <- Log.info("👋 Goodbye!")
+    yield ()

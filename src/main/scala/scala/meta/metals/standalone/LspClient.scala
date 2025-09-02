@@ -3,19 +3,20 @@ package scala.meta.metals.standalone
 import io.circe.*
 import io.circe.parser.*
 import io.circe.syntax.*
+import kyo.*
 
 import java.io.{BufferedReader, InputStreamReader, OutputStreamWriter, PrintWriter}
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{ConcurrentHashMap, ExecutorService, Executors}
 import java.util.logging.Logger
-import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.util.{Failure, Success, Try}
+import scala.concurrent.{ExecutionContext, Promise}
+import scala.util.Try
 
 /** Minimal LSP client for communicating with Metals language server. Implements JSON-RPC 2.0 protocol over
   * stdin/stdout.
   */
-class LspClient(process: Process)(using ExecutionContext):
+class LspClient(process: java.lang.Process)(using ExecutionContext):
   private val logger = Logger.getLogger(classOf[LspClient].getName)
 
   private val requestId       = new AtomicInteger(0)
@@ -58,34 +59,22 @@ class LspClient(process: Process)(using ExecutionContext):
   private def registerHandler(method: String, handler: Json => Option[Json]): Unit =
     messageHandlers.put(method, handler): Unit
 
-  def start(): Future[Unit] =
-    val promise = Promise[Unit]()
-    logger.info("Starting LSP client message reader...")
-
-    readerExecutor.submit(
-      new Runnable:
-        def run(): Unit =
-          logger.info("LSP message reader thread started")
-          promise.success(())
-          readMessages()
-    )
-
-    // Drain and log stderr to avoid blocking the Metals process on a full error buffer
-//    stderrExecutor.submit(
-//      new Runnable:
-//        def run(): Unit =
-//          try
-//            val reader = new BufferedReader(new InputStreamReader(stderr, StandardCharsets.UTF_8))
-//            var line   = reader.readLine()
-//            while line != null && !shutdownRequested do
-//              logger.info(s"[metals-stderr] $line")
-//              line = reader.readLine()
-//          catch
-//            case e: Exception if !shutdownRequested =>
-//              logger.warning(s"Error reading Metals stderr: ${e.getMessage}")
-//    )
-
-    promise.future
+  def start(): Unit < (Async & Abort[Throwable] & Sync) =
+    val started = Promise[Unit]()
+    for
+      _ <- Log.info("Starting LSP client message reader...")
+      _ <- Sync.defer {
+        readerExecutor.submit(
+          new Runnable:
+            def run(): Unit =
+              logger.info("LSP message reader thread started")
+              started.success(())
+              readMessages()
+        )
+        ()
+      }
+      _ <- Async.fromFuture(started.future)
+    yield ()
 
   private def readMessages(): Unit =
     var buffer = ""
@@ -230,7 +219,6 @@ class LspClient(process: Process)(using ExecutionContext):
     val messageStr   = message.noSpaces
     val messageBytes = messageStr.getBytes(StandardCharsets.UTF_8)
     val header       = s"Content-Length: ${messageBytes.length}\r\n\r\n"
-
     try
       stdin.print(header)
       stdin.print(messageStr)
@@ -261,37 +249,41 @@ class LspClient(process: Process)(using ExecutionContext):
     )
     sendMessage(response)
 
-  def sendRequest(method: String, params: Option[Json] = None): Future[Json] =
+  def sendRequest(method: String, params: Option[Json] = None): Json < (Async & Abort[Throwable] & Sync) =
     val id      = requestId.incrementAndGet()
     val promise = Promise[Json]()
 
-    logger.fine(s"Sending LSP request: $method (id: $id)")
-    pendingRequests.put(id, promise)
+    for
+      _ <- Log.debug(s"Sending LSP request: $method (id: $id)")
+      _ <- Sync.defer(pendingRequests.put(id, promise))
+      request = Json
+        .obj(
+          "jsonrpc" -> "2.0".asJson,
+          "id"      -> id.asJson,
+          "method"  -> method.asJson
+        )
+        .deepMerge(params match
+          case Some(p) => Json.obj("params" -> p)
+          case None    => Json.obj()
+        )
+      _ <- Log.debug(s"LSP request JSON: ${request.noSpaces}")
+      _ <- Sync.defer(sendMessage(request))
+      _ <- Log.debug(s"LSP request sent: $method (id: $id)")
+      res <- Async.fromFuture(promise.future)
+    yield res
 
-    val request = Json.obj(
-      "jsonrpc" -> "2.0".asJson,
-      "id"      -> id.asJson,
-      "method"  -> method.asJson
-    ) deepMerge (params match
-      case Some(p) => Json.obj("params" -> p)
-      case None    => Json.obj()
-    )
+  def sendNotification(method: String, params: Option[Json] = None): Unit < Sync =
+    val notification = Json
+      .obj(
+        "jsonrpc" -> "2.0".asJson,
+        "method"  -> method.asJson
+      )
+      .deepMerge(params match
+        case Some(p) => Json.obj("params" -> p)
+        case None    => Json.obj()
+      )
 
-    logger.fine(s"LSP request JSON: ${request.noSpaces}")
-    sendMessage(request)
-    logger.fine(s"LSP request sent: $method (id: $id)")
-    promise.future
-
-  def sendNotification(method: String, params: Option[Json] = None): Unit =
-    val notification = Json.obj(
-      "jsonrpc" -> "2.0".asJson,
-      "method"  -> method.asJson
-    ) deepMerge (params match
-      case Some(p) => Json.obj("params" -> p)
-      case None    => Json.obj()
-    )
-
-    sendMessage(notification)
+    Sync.defer(sendMessage(notification))
 
   // Message handlers (implementing minimal MetalsLanguageClient interface)
 
@@ -400,38 +392,25 @@ class LspClient(process: Process)(using ExecutionContext):
 
     Some(configs.asJson)
 
-  def shutdown(): Future[Json] =
-    shutdownRequested = true
-    sendRequest("shutdown").andThen {
-      case Success(_) =>
-        sendNotification("exit")
-
+  def shutdown(): Unit < (Async & Abort[Throwable] & Sync) =
+    for
+      _ <- Sync.defer { shutdownRequested = true }
+      _ <- sendRequest("shutdown").map(_ => ())
+      _ <- sendNotification("exit")
+      _ <- Sync.defer {
         // Close streams and terminate process
-        Try {
-          stdin.close()
-          stdout.close()
-          stderr.close()
-        }: Unit
-
-        readerExecutor.shutdown()
-//        stderrExecutor.shutdown()
-
+        val _ = Try(stdin.close())
+        val _2 = Try(stdout.close())
+        val _3 = Try(stderr.close())
+        ()
+      }
+      _ <- Sync.defer(readerExecutor.shutdown())
+      _ <-
         if process.isAlive then
-          process.destroy()
-          // Give it a moment for graceful shutdown
-          Thread.sleep(1000)
-          if process.isAlive then process.destroyForcibly(): Unit
-
-      case Failure(e) =>
-        logger.warning(s"Shutdown request failed: ${e.getMessage}")
-        // Force shutdown anyway
-        Try {
-          stdin.close()
-          stdout.close()
-          stderr.close()
-        }: Unit
-
-        readerExecutor.shutdown()
-//        stderrExecutor.shutdown()
-        process.destroyForcibly()
-    }
+          for
+            _ <- Sync.defer(process.destroy())
+            _ <- Async.sleep(1.second)
+            _ <- if process.isAlive then Sync.defer(process.destroyForcibly()).map(_ => ()) else Sync.defer(())
+          yield ()
+        else Sync.defer(())
+    yield ()

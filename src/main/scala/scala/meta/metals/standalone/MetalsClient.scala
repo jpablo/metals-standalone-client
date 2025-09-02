@@ -6,7 +6,7 @@ import kyo.*
 
 import java.nio.file.Path
 import java.util.logging.Logger
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Minimal Metals Language Client that implements the essential LSP protocol to start Metals and enable the MCP server.
   */
@@ -19,7 +19,7 @@ class MetalsClient(
 
   @volatile private var initialized = false
 
-  def initialize(): Boolean < (Async & Abort[Throwable]) =
+  def initialize(): Boolean < (Async & Abort[Throwable] & Sync) =
     if initialized then
       Log.info("Already initialized, returning success").andThen {
         Sync.defer(true)
@@ -30,8 +30,7 @@ class MetalsClient(
         initParams = createInitializeParams()
         _ <- Log.debug("Created initialization parameters")
         _ <- Log.debug("Sending initialize request to Metals...")
-        initializeFuture = Async.fromFuture(lspClient.sendRequest("initialize", Some(initParams)))
-        result <- Async.timeout(initTimeout)(initializeFuture)
+        result <- Async.timeout(initTimeout)(lspClient.sendRequest("initialize", Some(initParams)))
         _      <- Log.debug("Received initialize response from Metals")
         hasCapabilities = result.hcursor.downField("capabilities").succeeded
 
@@ -40,12 +39,12 @@ class MetalsClient(
             for
               _ <- Log.info("Metals language server initialized successfully")
               _ <- Log.debug("Sending initialized notification...")
-              _ = lspClient.sendNotification("initialized", Some(Json.obj()))
+              _ <- lspClient.sendNotification("initialized", Some(Json.obj()))
 
               // Small delay to let Metals process the initialized notification
               _ <- Async.sleep(500.millis)
               _ <- Log.debug("Configuring Metals...")
-              _ = configureMetals()
+              _ <- configureMetals()
               _ = initialized = true
               _ <- Log.debug("Initialization complete!")
             yield true
@@ -147,7 +146,7 @@ class MetalsClient(
       "askToReconnect"       -> false.asJson
     )
 
-  private def configureMetals(): Unit =
+  private def configureMetals(): Unit < Sync =
     logger.fine("Configuring Metals to enable MCP server...")
 
     val configParams = Json.obj(
@@ -160,6 +159,8 @@ class MetalsClient(
 
     lspClient.sendNotification("workspace/didChangeConfiguration", Some(configParams))
 
-  def shutdown(): Future[Unit] =
-    logger.info("Shutting down Metals client...")
-    lspClient.shutdown().map(_ => ())
+  def shutdown(): Unit < (Async & Abort[Throwable] & Sync) =
+    for
+      _ <- Log.info("Shutting down Metals client...")
+      _ <- lspClient.shutdown()
+    yield ()

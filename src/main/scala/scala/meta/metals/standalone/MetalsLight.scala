@@ -36,10 +36,10 @@ class MetalsLight(projectPath: Path, initTimeout: kyo.Duration):
     yield 0
 
 
-  private def startLspClient(process: java.lang.Process): Unit < (Async & Abort[Throwable]) =
+  private def startLspClient(process: java.lang.Process): Unit < (Async & Abort[Throwable] & Sync) =
     val c = new LspClient(process)
     lspClient = Some(c)
-    Async.fromFuture(c.start())
+    c.start()
 
 
   private def initializeMetals(): Unit < (Async & Abort[Throwable] & Sync) =
@@ -73,8 +73,8 @@ class MetalsLight(projectPath: Path, initTimeout: kyo.Duration):
 
   private def shutdown() =
     for
-      _ <- metalsClient.map(c => Async.fromFuture(c.shutdown())).getOrElse(Sync.defer(()))
-      _ <- lspClient.map(c => Async.fromFuture(c.shutdown())).getOrElse(Sync.defer(()))
+      _ <- metalsClient.map(c => c.shutdown()).getOrElse(Sync.defer(()))
+      _ <- lspClient.map(c => c.shutdown()).getOrElse(Sync.defer(()))
       _ <- launcher.shutdown()
       _ <- Log.info("👋 Goodbye!")
     yield ()

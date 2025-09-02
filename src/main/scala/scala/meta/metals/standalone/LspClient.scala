@@ -22,6 +22,7 @@ class LspClient(process: java.lang.Process)(using ExecutionContext):
   private val requestId       = new AtomicInteger(0)
   private val pendingRequests = new ConcurrentHashMap[Int, Promise[Json]]()
   private val messageHandlers = new ConcurrentHashMap[String, Json => Option[Json]]()
+  private val earlyResponses  = new ConcurrentHashMap[Int, Json]()
 
   private val stdin   = new PrintWriter(new OutputStreamWriter(process.getOutputStream, StandardCharsets.UTF_8), true)
   private val stdout  = process.getInputStream
@@ -59,7 +60,7 @@ class LspClient(process: java.lang.Process)(using ExecutionContext):
   private def registerHandler(method: String, handler: Json => Option[Json]): Unit =
     messageHandlers.put(method, handler): Unit
 
-  def start(): Unit < (Async & Abort[Throwable] & Sync) =
+  def start(): Unit < (Async & Abort[Throwable]) =
     val started = Promise[Unit]()
     for
       _ <- Log.info("Starting LSP client message reader...")
@@ -83,23 +84,17 @@ class LspClient(process: java.lang.Process)(using ExecutionContext):
     try
       var shouldContinue = true
       while !shutdownRequested && process.isAlive && shouldContinue do
-        println("-- 1 --")
         // Read available data in chunks
         val bytes     = new Array[Byte](4096)
-        println("-- 1.1 --")
         val bytesRead = stdout.read(bytes)
-        println("-- 1.2 --")
 
         if bytesRead == -1 then
           logger.warning("End of stream from Metals process")
           shouldContinue = false
         else if bytesRead == 0 then
-          println("-- 2 --")
           Thread.sleep(10)
         else
           val data = new String(bytes, 0, bytesRead, StandardCharsets.UTF_8)
-          println("-- 3 --")
-          println(data)
           buffer += data
 
           // Process complete messages
@@ -153,67 +148,71 @@ class LspClient(process: java.lang.Process)(using ExecutionContext):
         logger.fine(s"Raw message: $messageJson")
 
   private def handleMessage(message: Json): Unit =
-    val cursor = message.hcursor
+    val cursor      = message.hcursor
+    val maybeId     = cursor.downField("id").as[Int].toOption
+    val maybeMethod = cursor.downField("method").as[String].toOption
 
     logger.fine(s"Processing message: ${message.noSpaces.take(100)}...")
 
-    // Check if this is a response to our request
-    cursor.downField("id").as[Int] match
-      case Right(id) if pendingRequests.containsKey(id) =>
-        logger.fine(s"Received LSP response for request id: $id")
-        val promise = pendingRequests.remove(id)
-        cursor.downField("result").as[Json] match
-          case Right(result) =>
-            logger.fine(s"LSP request $id completed successfully")
-            logger.fine(s"Response result: ${result.noSpaces.take(200)}...")
-            promise.success(result)
-          case Left(_)       =>
-            cursor.downField("error").as[Json] match
-              case Right(error) =>
-                logger.severe(s"LSP request $id failed with error: $error")
-                promise.failure(new RuntimeException(s"LSP error: $error"))
-              case Left(_)      =>
-                logger.severe(s"LSP request $id failed - invalid response format")
-                logger.severe(s"Raw response: ${message.noSpaces}")
-                promise.failure(new RuntimeException("Invalid LSP response"))
+    (maybeId, maybeMethod) match
+      case (Some(id), None) =>
+        // Pure response (no method)
+        if pendingRequests.containsKey(id) then
+          logger.fine(s"Received LSP response for request id: $id")
+          val promise = pendingRequests.remove(id)
+          cursor.downField("result").as[Json] match
+            case Right(result) =>
+              logger.fine(s"LSP request $id completed successfully")
+              logger.fine(s"Response result: ${result.noSpaces.take(200)}...")
+              promise.success(result)
+            case Left(_)       =>
+              cursor.downField("error").as[Json] match
+                case Right(error) =>
+                  logger.severe(s"LSP request $id failed with error: $error")
+                  promise.failure(new RuntimeException(s"LSP error: $error"))
+                case Left(_)      =>
+                  logger.severe(s"LSP request $id failed - invalid response format")
+                  logger.severe(s"Raw response: ${message.noSpaces}")
+                  promise.failure(new RuntimeException("Invalid LSP response"))
+        else
+          logger.fine(s"Stashing early response for request id: $id")
+          val _ = earlyResponses.put(id, message)
+
+      case (_, Some(method)) =>
+        // Notification or server request
+        val params = cursor.downField("params").as[Json].getOrElse(Json.Null)
+
+        Option(messageHandlers.get(method)) match
+          case Some(handler) =>
+            try
+              val result = handler(params)
+
+              // If this is a request (has id), send response
+              maybeId match
+                case Some(msgId) =>
+                  result match
+                    case Some(responseData) => sendResponse(msgId, responseData)
+                    case None               => sendResponse(msgId, Json.Null)
+                case None        => // Notification, no response needed
+            catch
+              case e: Exception =>
+                logger.severe(s"Error handling $method: ${e.getMessage}")
+                maybeId match
+                  case Some(msgId) => sendErrorResponse(msgId, e.getMessage)
+                  case None        => // Notification, can't send error response
+          case None          =>
+            logger.fine(s"Unhandled LSP method: $method")
+            logger.fine(s"Unhandled method params: $params")
+            // Check if this is a request (has id) that needs a response
+            maybeId match
+              case Some(msgId) =>
+                logger.fine(s"Unhandled method $method is a request (id: $msgId) - sending empty response")
+                sendResponse(msgId, Json.Null)
+              case None        =>
+                logger.fine(s"Unhandled method $method is a notification - no response needed")
 
       case _ =>
-        // This is a notification or request from server
-        cursor.downField("method").as[String] match
-          case Right(method) =>
-            val params = cursor.downField("params").as[Json].getOrElse(Json.Null)
-
-            Option(messageHandlers.get(method)) match
-              case Some(handler) =>
-                try
-                  val result = handler(params)
-
-                  // If this is a request (has id), send response
-                  cursor.downField("id").as[Int] match
-                    case Right(msgId) =>
-                      result match
-                        case Some(responseData) => sendResponse(msgId, responseData)
-                        case None               => sendResponse(msgId, Json.Null)
-                    case Left(_)      => // This is a notification, no response needed
-                catch
-                  case e: Exception =>
-                    logger.severe(s"Error handling $method: ${e.getMessage}")
-                    cursor.downField("id").as[Int] match
-                      case Right(msgId) => sendErrorResponse(msgId, e.getMessage)
-                      case Left(_)      => // Notification, can't send error response
-              case None          =>
-                logger.fine(s"Unhandled LSP method: $method")
-                logger.fine(s"Unhandled method params: $params")
-                // Check if this is a request (has id) that needs a response
-                cursor.downField("id").as[Int] match
-                  case Right(msgId) =>
-                    logger.fine(s"Unhandled method $method is a request (id: $msgId) - sending empty response")
-                    sendResponse(msgId, Json.Null)
-                  case Left(_)      =>
-                    logger.fine(s"Unhandled method $method is a notification - no response needed")
-
-          case Left(_) =>
-            logger.warning(s"Message without method: $message")
+        logger.warning(s"Message without method: $message")
 
   private def sendMessage(message: Json): Unit =
     val messageStr   = message.noSpaces
@@ -223,9 +222,6 @@ class LspClient(process: java.lang.Process)(using ExecutionContext):
       stdin.print(header)
       stdin.print(messageStr)
       stdin.flush()
-      println("---------------")
-      println(header)
-      println(messageStr)
     catch
       case e: Exception =>
         logger.severe(s"Failed to send message: ${e.getMessage}")
@@ -256,6 +252,20 @@ class LspClient(process: java.lang.Process)(using ExecutionContext):
     for
       _ <- Log.debug(s"Sending LSP request: $method (id: $id)")
       _ <- Sync.defer(pendingRequests.put(id, promise))
+      // If a response arrived before we registered the request, complete immediately
+      earlyHandled <- Sync.defer {
+        val early = Option(earlyResponses.remove(id))
+        early.foreach { msg =>
+          val c = msg.hcursor
+          c.downField("result").as[Json] match
+            case Right(res) => promise.success(res)
+            case Left(_)    =>
+              c.downField("error").as[Json] match
+                case Right(err) => promise.failure(new RuntimeException(s"LSP error: $err"))
+                case Left(_)    => promise.failure(new RuntimeException("Invalid LSP response"))
+        }
+        early.isDefined
+      }
       request = Json
         .obj(
           "jsonrpc" -> "2.0".asJson,
@@ -266,9 +276,8 @@ class LspClient(process: java.lang.Process)(using ExecutionContext):
           case Some(p) => Json.obj("params" -> p)
           case None    => Json.obj()
         )
-      _ <- Log.debug(s"LSP request JSON: ${request.noSpaces}")
-      _ <- Sync.defer(sendMessage(request))
-      _ <- Log.debug(s"LSP request sent: $method (id: $id)")
+      _ <- if earlyHandled then Sync.defer(())
+          else Log.debug(s"LSP request JSON: ${request.noSpaces}").andThen(Sync.defer(sendMessage(request))).andThen(Log.debug(s"LSP request sent: $method (id: $id)"))
       res <- Async.fromFuture(promise.future)
     yield res
 

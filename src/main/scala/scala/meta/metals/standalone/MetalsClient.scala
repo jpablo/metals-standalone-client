@@ -17,43 +17,45 @@ class MetalsClient(
 )(using ExecutionContext):
   private val logger = Logger.getLogger(classOf[MetalsClient].getName)
 
-  @volatile private var initialized = false
+  private val initialized = AtomicBoolean.init(false)
 
-  def initialize(): Boolean < (Async & Abort[Throwable]) =
-    if initialized then
-      Log.info("Already initialized, returning success") andThen {
-        Sync.defer(true)
-      }
-    else
-      for
-        _ <- Log.info("Initializing Metals language server...")
-        initParams = createInitializeParams()
-        _ <- Log.debug("Created initialization parameters")
-        _ <- Log.debug("Sending initialize request to Metals...")
-        result: Json <- Async.timeout(initTimeout)(lspClient.sendRequest("initialize", Some(initParams)))
-        _      <- Log.debug("Received initialize response from Metals")
-        hasCapabilities = result.hcursor.downField("capabilities").succeeded
+  def initialize(): Boolean < (Async & Abort[Throwable]) = {
+    initialized.map(_.get).map: isInitialized =>
+      if isInitialized then
+        Log.info("Already initialized, returning success") andThen {
+          Sync.defer(true)
+        }
+      else
+        for
+          _ <- Log.info("Initializing Metals language server...")
+          initParams = createInitializeParams()
+          _ <- Log.debug("Created initialization parameters")
+          _ <- Log.debug("Sending initialize request to Metals...")
+          result: Json <- Async.timeout(initTimeout)(lspClient.sendRequest("initialize", Some(initParams)))
+          _      <- Log.debug("Received initialize response from Metals")
+          hasCapabilities = result.hcursor.downField("capabilities").succeeded
 
-        ret <-
-          if hasCapabilities then
-            for
-              _ <- Log.info("Metals language server initialized successfully")
-              _ <- Log.debug("Sending initialized notification...")
-              _ <- lspClient.sendNotification("initialized", Some(Json.obj()))
+          ret <-
+            if hasCapabilities then
+              for
+                _ <- Log.info("Metals language server initialized successfully")
+                _ <- Log.debug("Sending initialized notification...")
+                _ <- lspClient.sendNotification("initialized", Some(Json.obj()))
 
-              // Small delay to let Metals process the initialized notification
-              _ <- Async.sleep(500.millis)
-              _ <- Log.debug("Configuring Metals...")
-              _ <- configureMetals()
-              _ = initialized = true
-              _ <- Log.debug("Initialization complete!")
-            yield true
-          else
-            for
-              _ <- Log.error("Failed to initialize Metals language server - no capabilities in response")
-              _ <- Log.debug(s"Response was: $result")
-            yield false
-      yield ret
+                // Small delay to let Metals process the initialized notification
+                _ <- Async.sleep(500.millis)
+                _ <- Log.debug("Configuring Metals...")
+                _ <- configureMetals()
+                _ <- initialized.map(_.set(true))
+                _ <- Log.debug("Initialization complete!")
+              yield true
+            else
+              for
+                _ <- Log.error("Failed to initialize Metals language server - no capabilities in response")
+                _ <- Log.debug(s"Response was: $result")
+              yield false
+        yield ret
+  }
 
   private def createInitializeParams(): Json =
     Json.obj(

@@ -17,12 +17,12 @@ class MetalsLight(projectPath: Path, initTimeout: kyo.Duration):
   private var lspClient: Option[LspClient]         = None
   private var metalsClient: Option[MetalsClient]   = None
 
-  def run(): Int < (Async & Abort[Throwable] & Scope & Sync) =
+  def run(): Int < (Async & Abort[Throwable] & Scope) =
     Abort.catching[Throwable] {
       Scope.ensure(shutdown()).andThen(startApplication())
     }
 
-  private def startApplication(): Int < (Async & Abort[Throwable] & Sync) =
+  private def startApplication(): Int < (Async & Abort[Throwable]) =
     for
       _ <- Log.info("🚀 Starting Metals standalone MCP client...")
       valid <- launcher.validateProject()
@@ -36,13 +36,13 @@ class MetalsLight(projectPath: Path, initTimeout: kyo.Duration):
     yield 0
 
 
-  private def startLspClient(process: java.lang.Process): Unit < (Async & Abort[Throwable] & Sync) =
+  private def startLspClient(process: java.lang.Process): Unit < (Async & Abort[Throwable]) =
     val c = new LspClient(process)
     lspClient = Some(c)
     c.start()
 
 
-  private def initializeMetals(): Unit < (Async & Abort[Throwable] & Sync) =
+  private def initializeMetals(): Unit < (Async & Abort[Throwable]) =
     for
       client <- Sync.defer(lspClient.getOrElse(throw new RuntimeException("LSP client not started")))
       metals <- Sync.defer {
@@ -59,7 +59,7 @@ class MetalsLight(projectPath: Path, initTimeout: kyo.Duration):
     yield ()
 
 
-  private def startMcpMonitoring(): Unit < (Async & Abort[Throwable] & Sync) =
+  private def startMcpMonitoring(): Unit < (Async & Abort[Throwable]) =
     for
       monitor <- Sync.defer(new McpMonitor(projectPath))
       _ <- Sync.defer(println("⏳ Waiting for MCP server to start..."))

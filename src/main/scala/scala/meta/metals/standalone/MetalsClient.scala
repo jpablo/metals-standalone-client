@@ -21,7 +21,7 @@ class MetalsClient(
 
   def initialize(): Boolean < (Async & Abort[Throwable]) =
     if initialized then
-      Log.info("Already initialized, returning success").andThen {
+      Log.info("Already initialized, returning success") andThen {
         Sync.defer(true)
       }
     else
@@ -30,7 +30,7 @@ class MetalsClient(
         initParams = createInitializeParams()
         _ <- Log.debug("Created initialization parameters")
         _ <- Log.debug("Sending initialize request to Metals...")
-        result <- Async.timeout(initTimeout)(lspClient.sendRequest("initialize", Some(initParams)))
+        result: Json <- Async.timeout(initTimeout)(lspClient.sendRequest("initialize", Some(initParams)))
         _      <- Log.debug("Received initialize response from Metals")
         hasCapabilities = result.hcursor.downField("capabilities").succeeded
 

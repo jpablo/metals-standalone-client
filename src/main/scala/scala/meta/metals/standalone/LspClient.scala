@@ -240,7 +240,7 @@ class LspClient(process: java.lang.Process)(using ExecutionContext):
     )
     sendMessage(response)
 
-  def sendRequest(method: String, params: Option[Json] = None): Json < (Async & Abort[Throwable] & Sync) =
+  def sendRequest(method: String, params: Option[Json] = None): Json < (Async & Abort[Throwable]) =
     val id      = requestId.incrementAndGet()
     val promise = Promise[Json]()
 
@@ -396,7 +396,7 @@ class LspClient(process: java.lang.Process)(using ExecutionContext):
 
     Some(configs.asJson)
 
-  def shutdown(): Unit < (Async & Abort[Throwable] & Sync) =
+  def shutdown(): Unit < (Async & Abort[Throwable]) =
     for
       _ <- Sync.defer { shutdownRequested = true }
       _ <- sendRequest("shutdown").map(_ => ())

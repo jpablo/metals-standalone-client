@@ -19,18 +19,18 @@ object Main extends KyoApp:
       initTimeout: kyo.Duration = 5.minutes
   )
 
-  run {
-    val config = parseArgs(args.toList)
-    val logName = "metals-standalone"
-    // Configure Java Platform Logging (JUL) levels to match verbosity
-    val juLevel = if config.verbose then JULLevel.FINE else JULLevel.INFO
-    val root    = JULLogger.getLogger("")
-    root.setLevel(juLevel)
-    root.getHandlers.foreach(_.setLevel(juLevel))
-    JULLogger.getLogger(logName).setLevel(juLevel)
+  val config = parseArgs(args.toList)
+  val logName = "metals-standalone"
+  // Configure Java Platform Logging (JUL) levels to match verbosity
+  val juLevel = if config.verbose then JULLevel.FINE else JULLevel.INFO
+  val root    = JULLogger.getLogger("")
+  root.setLevel(juLevel)
+  root.getHandlers.foreach(_.setLevel(juLevel))
+  JULLogger.getLogger(logName).setLevel(juLevel)
 
+  val level = if config.verbose then Log.Level.debug else Log.Level.info
+  run {
     // Bridge Kyo Log and run the effect under a live logger
-    val level = if config.verbose then Log.Level.debug else Log.Level.info
     Log.withConsoleLogger(logName, level) {
       new MetalsLight(config.projectPath, config.initTimeout).run()
     }

@@ -23,6 +23,7 @@
 //> using option "-unchecked" 
 //> using option "-feature"
 //> using option "-Wunused:imports"
+//> using option "-preview"
 // Recommended strictness flags
 //> using option "-Wvalue-discard"
 //> using option "-Wnonunit-statement"

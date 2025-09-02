@@ -18,15 +18,13 @@ class MetalsLight(projectPath: Path, initTimeout: kyo.Duration):
   private var metalsClient: Option[MetalsClient]   = None
 
   def run(): Int < (Async & Abort[Throwable] & Scope) =
-    Abort.catching[Throwable] {
-      Scope.ensure(shutdown()).andThen(startApplication())
-    }
+    Scope.ensure(shutdown()).andThen(startApplication())
 
   private def startApplication(): Int < (Async & Abort[Throwable]) =
     for
       _ <- Log.info("🚀 Starting Metals standalone MCP client...")
       valid <- launcher.validateProject()
-      _ <- Log.info(s"${if valid then "valid" else "invalid"} configuration found")
+      _ <- Log.debug(s"${if valid then "valid" else "invalid"} configuration found")
       _ <- Log.info("📦 Launching Metals language server...")
       process <- launcher.launchMetals()
       _ <- Log.info(s"process: $process")
@@ -61,7 +59,7 @@ class MetalsLight(projectPath: Path, initTimeout: kyo.Duration):
 
   private def startMcpMonitoring(): Unit < (Async & Abort[Throwable]) =
     for
-      monitor <- Sync.defer(new McpMonitor(projectPath))
+      monitor = McpMonitor(projectPath)
       _ <- Sync.defer(println("⏳ Waiting for MCP server to start..."))
       mcpUrl <- Async.fromFuture(monitor.waitForMcpServer()).map {
         case Some(url) => url
@@ -71,7 +69,7 @@ class MetalsLight(projectPath: Path, initTimeout: kyo.Duration):
       _ <- Async.fromFuture(monitor.monitorMcpHealth(mcpUrl)).map(_ => ())
     yield ()
 
-  private def shutdown() =
+  private def shutdown(): Unit < (Async & Abort[Throwable]) =
     for
       _ <- metalsClient.map(c => c.shutdown()).getOrElse(Sync.defer(()))
       _ <- lspClient.map(c => c.shutdown()).getOrElse(Sync.defer(()))

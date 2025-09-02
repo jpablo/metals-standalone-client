@@ -15,30 +15,30 @@ class MetalsClient(
 ):
   private val initialized = AtomicBoolean.init(false)
 
-  def initialize(): Boolean < (Async & Abort[Throwable]) = direct {
-    val isInitialized = initialized.map(_.get).now
-    if isInitialized then
-      Log.info("Already initialized, returning success").now
-      true
-    else
-      Log.info("Initializing Metals language server...").now
-      val initParams = createInitializeParams()
-      Log.debug("Sending initialize request to Metals...").now
-      val result: Json = Async.timeout(initTimeout)(lspClient.sendRequest("initialize", Some(initParams))).now
-      val hasCapabilities = result.hcursor.downField("capabilities").succeeded
-      if hasCapabilities then
-        Log.info("Metals language server initialized successfully").now
-        lspClient.sendNotification("initialized", Some(Json.obj())).now
-        Async.sleep(500.millis).now
-        Log.debug("Configuring Metals...").now
-        configureMetals().now
-        initialized.map(_.set(true)).now
-        Log.debug("Initialization complete!").now
+  def initialize(): Boolean < (Async & Abort[Throwable]) =
+    direct:
+      val isInitialized = initialized.map(_.get).now
+      if isInitialized then
+        Log.info("Already initialized, returning success").now
         true
       else
-        Log.error("Failed to initialize Metals language server - no capabilities in response").now
-        false
-  }
+        Log.info("Initializing Metals language server...").now
+        val initParams = createInitializeParams()
+        Log.debug("Sending initialize request to Metals...").now
+        val result: Json = Async.timeout(initTimeout)(lspClient.sendRequest("initialize", Some(initParams))).now
+        val hasCapabilities = result.hcursor.downField("capabilities").succeeded
+        if hasCapabilities then
+          Log.info("Metals language server initialized successfully").now
+          lspClient.sendNotification("initialized", Some(Json.obj())).now
+          Async.sleep(500.millis).now
+          Log.debug("Configuring Metals...").now
+          configureMetals().now
+          initialized.map(_.set(true)).now
+          Log.debug("Initialization complete!").now
+          true
+        else
+          Log.error("Failed to initialize Metals language server - no capabilities in response").now
+          false
 
   private def createInitializeParams(): Json =
     Json.obj(
@@ -139,7 +139,7 @@ class MetalsClient(
         )
       )
     )
-    direct {
+    direct:
       val port = NetUtil.configuredMcpPort()
       val ok   = NetUtil.isPortAvailable(port).now
       if !ok then
@@ -151,9 +151,8 @@ class MetalsClient(
 
       Log.debug("Configuring Metals to enable MCP server...").now
       lspClient.sendNotification("workspace/didChangeConfiguration", Some(configParams)).now
-    }
 
-  def shutdown(): Unit < (Async & Abort[Throwable]) = direct {
-    Log.info("Shutting down Metals client...").now
-    lspClient.shutdown().now
-  }
+  def shutdown(): Unit < (Async & Abort[Throwable]) =
+    direct:
+      Log.info("Shutting down Metals client...").now
+      lspClient.shutdown().now

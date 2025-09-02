@@ -17,8 +17,7 @@ class MetalsClient(
 
   def initialize(): Boolean < (Async & Abort[Throwable]) =
     direct:
-      val isInitialized = initialized.map(_.get).now
-      if isInitialized then
+      if initialized.map(_.get).now then
         Log.info("Already initialized, returning success").now
         true
       else

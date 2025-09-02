@@ -19,7 +19,7 @@ class MetalsClient(
 
   @volatile private var initialized = false
 
-  def initialize(): Boolean < (Async & Abort[Throwable] & Sync) =
+  def initialize(): Boolean < (Async & Abort[Throwable]) =
     if initialized then
       Log.info("Already initialized, returning success").andThen {
         Sync.defer(true)
@@ -159,7 +159,7 @@ class MetalsClient(
 
     lspClient.sendNotification("workspace/didChangeConfiguration", Some(configParams))
 
-  def shutdown(): Unit < (Async & Abort[Throwable] & Sync) =
+  def shutdown(): Unit < (Async & Abort[Throwable]) =
     for
       _ <- Log.info("Shutting down Metals client...")
       _ <- lspClient.shutdown()

@@ -5,7 +5,7 @@ import io.circe.parser.*
 import io.circe.syntax.*
 import kyo.*
 
-import java.io.{BufferedReader, InputStreamReader, OutputStreamWriter, PrintWriter}
+import java.io.{OutputStreamWriter, PrintWriter}
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{ConcurrentHashMap, ExecutorService, Executors}
@@ -34,11 +34,6 @@ class LspClient(process: java.lang.Process)(using ExecutionContext):
     thread.setDaemon(true)
     thread
   )
-//  private val stderrExecutor: ExecutorService = Executors.newSingleThreadExecutor(r =>
-//    val thread = new Thread(r, "lsp-stderr-reader")
-//    thread.setDaemon(true)
-//    thread
-//  )
 
   setupMessageHandlers()
 

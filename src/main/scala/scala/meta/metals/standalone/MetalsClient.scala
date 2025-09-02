@@ -147,8 +147,6 @@ class MetalsClient(
     )
 
   private def configureMetals(): Unit < Sync =
-    logger.fine("Configuring Metals to enable MCP server...")
-
     val configParams = Json.obj(
       "settings" -> Json.obj(
         "metals" -> Json.obj(
@@ -156,8 +154,19 @@ class MetalsClient(
         )
       )
     )
+    direct {
+      val port = NetUtil.configuredMcpPort()
+      val ok   = NetUtil.isPortAvailable(port).now
+      if !ok then
+        Log.error(
+          s"Metals MCP port appears to be in use (port $port). The MCP server may fail to start with BindException.\n" +
+            s"To identify the process: lsof -nP -iTCP:$port -sTCP:LISTEN  (macOS/Linux)\n" +
+            s"Or: ss -lptn 'sport = :$port' (Linux)."
+        ).now
 
-    lspClient.sendNotification("workspace/didChangeConfiguration", Some(configParams))
+      Log.debug("Configuring Metals to enable MCP server...").now
+      lspClient.sendNotification("workspace/didChangeConfiguration", Some(configParams)).now
+    }
 
   def shutdown(): Unit < (Async & Abort[Throwable]) =
     for

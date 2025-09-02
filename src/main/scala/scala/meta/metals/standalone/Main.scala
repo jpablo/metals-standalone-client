@@ -3,7 +3,6 @@ package scala.meta.metals.standalone
 import java.nio.file.{Path, Paths}
  
 import java.util.logging.{Logger as JULLogger, Level as JULLevel}
-import scala.concurrent.duration.*
 
 /** Main entry point for the standalone Metals MCP client.
   *

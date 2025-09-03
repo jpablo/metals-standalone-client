@@ -10,7 +10,7 @@ import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{ConcurrentHashMap, ExecutorService, Executors}
 import java.util.logging.Logger
-import scala.concurrent.{ExecutionContext, Promise}
+import scala.concurrent.{ExecutionContext, Promise as SPromise}
 import scala.util.Try
 
 /** Minimal LSP client for communicating with Metals language server. Implements JSON-RPC 2.0 protocol over
@@ -20,7 +20,7 @@ class LspClient(process: java.lang.Process)(using ExecutionContext):
   private val logger = Logger.getLogger(classOf[LspClient].getName)
 
   private val requestId       = new AtomicInteger(0)
-  private val pendingRequests = new ConcurrentHashMap[Int, Promise[Json]]()
+  private val pendingRequests = new ConcurrentHashMap[Int, SPromise[Json]]()
   private val messageHandlers = new ConcurrentHashMap[String, Json => Option[Json]]()
   private val earlyResponses  = new ConcurrentHashMap[Int, Json]()
 
@@ -29,6 +29,8 @@ class LspClient(process: java.lang.Process)(using ExecutionContext):
   private val stderr  = process.getErrorStream
 
   @volatile private var shutdownRequested     = false
+  private var readerFiber: Option[Fiber[Unit, Abort[Throwable] & Any]] = None
+
   private val readerExecutor: ExecutorService = Executors.newSingleThreadExecutor(r =>
     val thread = new Thread(r, "lsp-reader")
     thread.setDaemon(true)
@@ -55,22 +57,37 @@ class LspClient(process: java.lang.Process)(using ExecutionContext):
   private def registerHandler(method: String, handler: Json => Option[Json]): Unit =
     messageHandlers.put(method, handler): Unit
 
-  def start(): Unit < (Async & Abort[Throwable]) =
-    val started = Promise[Unit]()
+  def start() =
     for
       _ <- Log.info("Starting LSP client message reader...")
-      _ <- Sync.defer {
-        readerExecutor.submit(
-          new Runnable:
-            def run(): Unit =
-              logger.info("LSP message reader thread started")
-              started.success(())
-              readMessages()
-        )
-        ()
+      promise: Promise[Unit, Any] <- Promise.init[Unit, Any]                      // success=Unit, effects=Any
+      fiber <- Fiber.init {
+        for
+          _ <- Log.info("LSP message reader fiber started")
+          _ <- promise.completeUnitDiscard         // signal readiness
+          _ <- Sync.defer(readMessages())
+        yield ()
       }
-      _ <- Async.fromFuture(started.future)
+      _ <- Sync.defer { readerFiber = Some(fiber) }     // store handle for shutdown
+      _ <- promise.get                                  // wait until started
     yield ()
+
+//  def start1(): Unit < (Async & Abort[Throwable]) =
+//    val started = Promise[Unit]()
+//    for
+//      _ <- Log.info("Starting LSP client message reader...")
+//      _ <- Sync.defer {
+//        readerExecutor.submit(
+//          new Runnable:
+//            def run(): Unit =
+//              logger.info("LSP message reader thread started")
+//              started.success(())
+//              readMessages()
+//        )
+//        ()
+//      }
+//      _ <- Async.fromFuture(started.future)
+//    yield ()
 
   private def readMessages(): Unit =
     var buffer = ""
@@ -242,7 +259,7 @@ class LspClient(process: java.lang.Process)(using ExecutionContext):
 
   def sendRequest(method: String, params: Option[Json] = None): Json < (Async & Abort[Throwable]) =
     val id      = requestId.incrementAndGet()
-    val promise = Promise[Json]()
+    val promise = SPromise[Json]()
 
     for
       _ <- Log.debug(s"Sending LSP request: $method (id: $id)")
@@ -399,8 +416,9 @@ class LspClient(process: java.lang.Process)(using ExecutionContext):
   def shutdown(): Unit < (Async & Abort[Throwable]) =
     for
       _ <- Sync.defer { shutdownRequested = true }
-      _ <- sendRequest("shutdown").map(_ => ())
+      _ <- sendRequest("shutdown").unit
       _ <- sendNotification("exit")
+
       _ <- Sync.defer {
         // Close streams and terminate process
         val _ = Try(stdin.close())
@@ -408,13 +426,42 @@ class LspClient(process: java.lang.Process)(using ExecutionContext):
         val _3 = Try(stderr.close())
         ()
       }
-      _ <- Sync.defer(readerExecutor.shutdown())
+
+      // cancel reader fiber if started
+      _ <- readerFiber match
+        case Some(f) => f.interrupt.map(_ => ())
+        case None => Sync.defer(())
+
+      // stop the underlying process
       _ <-
         if process.isAlive then
           for
             _ <- Sync.defer(process.destroy())
             _ <- Async.sleep(1.second)
-            _ <- if process.isAlive then Sync.defer(process.destroyForcibly()).map(_ => ()) else Sync.defer(())
+            _ <- if process.isAlive then Sync.defer(process.destroyForcibly()).unit else Sync.defer(())
           yield ()
         else Sync.defer(())
     yield ()
+
+//  def shutdown(): Unit < (Async & Abort[Throwable]) =
+//    for
+//      _ <- Sync.defer { shutdownRequested = true }
+//      _ <- sendRequest("shutdown").map(_ => ())
+//      _ <- sendNotification("exit")
+//      _ <- Sync.defer {
+//        // Close streams and terminate process
+//        val _ = Try(stdin.close())
+//        val _2 = Try(stdout.close())
+//        val _3 = Try(stderr.close())
+//        ()
+//      }
+//      _ <- Sync.defer(readerExecutor.shutdown())
+//      _ <-
+//        if process.isAlive then
+//          for
+//            _ <- Sync.defer(process.destroy())
+//            _ <- Async.sleep(1.second)
+//            _ <- if process.isAlive then Sync.defer(process.destroyForcibly()).map(_ => ()) else Sync.defer(())
+//          yield ()
+//        else Sync.defer(())
+//    yield ()

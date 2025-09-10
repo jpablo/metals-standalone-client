@@ -1,5 +1,8 @@
 //> using scala "3.7.1"
 
+// Metals version configuration
+//> using resourceDir "src/main/resources"
+
 // JSON processing dependencies
 //> using dep "io.circe::circe-core:0.14.14"
 //> using dep "io.circe::circe-parser:0.14.14"

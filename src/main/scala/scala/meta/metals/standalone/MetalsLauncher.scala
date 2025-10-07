@@ -13,7 +13,7 @@ import java.util.logging.Logger
   *   - Development SBT execution (when in metals repo)
   *   - Local JAR files
   */
-class MetalsLauncher(projectPath: Path):
+class MetalsLauncher(projectPath: Path, metalsArgs: Seq[String] = Seq.empty):
   private val logger = Logger.getLogger(classOf[MetalsLauncher].getName)
 
   private var metalsProcess: Option[java.lang.Process] = None
@@ -133,15 +133,17 @@ class MetalsLauncher(projectPath: Path):
         None
 
   private def buildCommand(installation: MetalsInstallation): Seq[String] =
-    installation match
+    val baseCommand = installation match
       case MetalsInstallation.CoursierInstallation(java, classpath) =>
-        Seq(java, "-cp", classpath, "scala.meta.metals.Main")
+        Seq(java) ++ metalsArgs ++ Seq("-cp", classpath, "scala.meta.metals.Main")
       case MetalsInstallation.SbtDevelopment(sbt, _)                =>
-        Seq(sbt, "metals/run")
+        Seq(sbt) ++ metalsArgs ++ Seq("metals/run")
       case MetalsInstallation.JarInstallation(java, jarPath)        =>
-        Seq(java, "-jar", jarPath)
+        Seq(java) ++ metalsArgs ++ Seq("-jar", jarPath)
       case MetalsInstallation.DirectCommand(executable)             =>
-        Seq(executable)
+        Seq(executable) ++ metalsArgs
+
+    baseCommand
 
   private def getWorkingDirectory(installation: MetalsInstallation): Path =
     installation match

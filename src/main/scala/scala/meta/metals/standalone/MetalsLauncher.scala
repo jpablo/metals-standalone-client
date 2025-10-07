@@ -135,15 +135,15 @@ class MetalsLauncher(projectPath: Path, metalsArgs: Seq[String] = Seq.empty):
   private def buildCommand(installation: MetalsInstallation): Seq[String] =
     val baseCommand = installation match
       case MetalsInstallation.CoursierInstallation(java, classpath) =>
-        Seq(java, "-cp", classpath, "scala.meta.metals.Main")
+        Seq(java) ++ metalsArgs ++ Seq("-cp", classpath, "scala.meta.metals.Main")
       case MetalsInstallation.SbtDevelopment(sbt, _)                =>
-        Seq(sbt, "metals/run")
+        Seq(sbt) ++ metalsArgs ++ Seq("metals/run")
       case MetalsInstallation.JarInstallation(java, jarPath)        =>
-        Seq(java, "-jar", jarPath)
+        Seq(java) ++ metalsArgs ++ Seq("-jar", jarPath)
       case MetalsInstallation.DirectCommand(executable)             =>
-        Seq(executable)
+        Seq(executable) ++ metalsArgs
 
-    baseCommand ++ metalsArgs
+    baseCommand
 
   private def getWorkingDirectory(installation: MetalsInstallation): Path =
     installation match

@@ -35,10 +35,11 @@ class MetalsLauncher(projectPath: Path):
 
     coursierCommand.flatMap { cs =>
       try
-        logger.info("Attempting to fetch Metals classpath via Coursier...")
+        val metalsVersion = System.getProperty("metals.version", "latest.release")
+        logger.info(s"Attempting to fetch Metals ($metalsVersion) classpath via Coursier...")
 
         // Use coursier fetch command to get classpath
-        val command        = Seq(cs, "fetch", "--classpath", "org.scalameta:metals_2.13:latest.release")
+        val command        = Seq(cs, "fetch", "--classpath", s"org.scalameta:metals_2.13:$metalsVersion")
         val processBuilder = new java.lang.ProcessBuilder(command.asJava)
         val process        = processBuilder.start()
         val result         = scala.io.Source.fromInputStream(process.getInputStream).mkString.trim

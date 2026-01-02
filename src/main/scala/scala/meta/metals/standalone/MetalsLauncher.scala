@@ -17,6 +17,7 @@ class MetalsLauncher(projectPath: Path):
   private val logger = Logger.getLogger(classOf[MetalsLauncher].getName)
 
   private var metalsProcess: Option[java.lang.Process] = None
+  private val metalsVersion                            = sys.env.getOrElse("METALS_VERSION", "1.6.0")
 
   enum MetalsInstallation:
     case CoursierInstallation(javaExecutable: String, classpath: String)
@@ -35,10 +36,10 @@ class MetalsLauncher(projectPath: Path):
 
     coursierCommand.flatMap { cs =>
       try
-        logger.info("Attempting to fetch Metals classpath via Coursier...")
+        logger.info(s"Attempting to fetch Metals classpath via Coursier (version $metalsVersion)...")
 
         // Use coursier fetch command to get classpath
-        val command        = Seq(cs, "fetch", "--classpath", "org.scalameta:metals_2.13:1.6.0")
+        val command        = Seq(cs, "fetch", "--classpath", s"org.scalameta:metals_2.13:$metalsVersion")
         val processBuilder = new java.lang.ProcessBuilder(command.asJava)
         val process        = processBuilder.start()
         val result         = scala.io.Source.fromInputStream(process.getInputStream).mkString.trim

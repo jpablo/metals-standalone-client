@@ -5,9 +5,10 @@ import io.circe.parser.*
 import sttp.client3.*
 
 import java.nio.file.{Files, Path}
+import java.util.concurrent.{Executors, ScheduledExecutorService, TimeUnit}
 import java.util.logging.Logger
 import scala.concurrent.duration.*
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 
 /** Monitor and manage MCP server configuration. Watches for configuration files and tests server health.
   */
@@ -21,6 +22,22 @@ class McpMonitor(projectPath: Path)(using ExecutionContext):
   )
 
   private val httpClient = SimpleHttpClient()
+  private val scheduler: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor(r =>
+    val thread = new Thread(r, "mcp-monitor-scheduler")
+    thread.setDaemon(true)
+    thread
+  )
+
+  private def delay(duration: FiniteDuration): Future[Unit] =
+    val promise = Promise[Unit]()
+    scheduler.schedule(
+      new Runnable:
+        def run(): Unit = promise.success(())
+      ,
+      duration.toMillis,
+      TimeUnit.MILLISECONDS
+    )
+    promise.future
 
   def findMcpConfig(): Option[Path] =
     configPaths.find { configPath =>
@@ -147,25 +164,17 @@ class McpMonitor(projectPath: Path)(using ExecutionContext):
                       else
                         logger.info("MCP config found but server not responding yet")
                         // Wait 1 second and try again
-                        Future {
-                          Thread.sleep(1000)
-                        }.flatMap(_ => checkForServer())
+                        delay(1.second).flatMap(_ => checkForServer())
                     }
                   case None         =>
                     // Config exists but no URL found, wait and try again
-                    Future {
-                      Thread.sleep(1000)
-                    }.flatMap(_ => checkForServer())
+                    delay(1.second).flatMap(_ => checkForServer())
               case None         =>
                 // Config exists but parsing failed, wait and try again
-                Future {
-                  Thread.sleep(1000)
-                }.flatMap(_ => checkForServer())
+                delay(1.second).flatMap(_ => checkForServer())
           case None             =>
             // No config found yet, wait and try again
-            Future {
-              Thread.sleep(1000)
-            }.flatMap(_ => checkForServer())
+            delay(1.second).flatMap(_ => checkForServer())
 
     logger.info("Waiting for MCP server to start...")
     checkForServer()
@@ -191,9 +200,7 @@ class McpMonitor(projectPath: Path)(using ExecutionContext):
         .flatMap { isHealthy =>
           if isHealthy then
             // Wait for the check interval, then check again
-            Future {
-              Thread.sleep(checkIntervalSeconds * 1000)
-            }.flatMap(_ => healthCheck())
+            delay(checkIntervalSeconds.seconds).flatMap(_ => healthCheck())
           else
             logger.warning("MCP server appears to be down")
             Future.successful(false)

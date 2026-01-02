@@ -82,6 +82,13 @@ The tool automatically looks for MCP configuration files in:
 - `.cursor/mcp.json`
 - `.vscode/mcp.json`
 
+### Metals Version Override
+
+When Metals is discovered via Coursier, you can pin the version:
+```bash
+METALS_VERSION=1.6.0 ./metals-standalone-client --help
+```
+
 ## Requirements
 
 ### For Pre-built Executables

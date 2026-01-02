@@ -4,8 +4,10 @@ import io.circe.*
 import io.circe.syntax.*
 
 import java.nio.file.Path
+import java.util.concurrent.{Executors, ScheduledExecutorService, TimeUnit}
 import java.util.logging.Logger
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.duration.*
 
 /** Minimal Metals Language Client that implements the essential LSP protocol to start Metals and enable the MCP server.
   */
@@ -13,6 +15,33 @@ class MetalsClient(projectPath: Path, lspClient: LspClient)(using ExecutionConte
   private val logger = Logger.getLogger(classOf[MetalsClient].getName)
 
   @volatile private var initialized = false
+  private val scheduler: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor(r =>
+    val thread = new Thread(r, "metals-client-scheduler")
+    thread.setDaemon(true)
+    thread
+  )
+
+  private def delay(duration: FiniteDuration): Future[Unit] =
+    val promise = Promise[Unit]()
+    scheduler.schedule(
+      new Runnable:
+        def run(): Unit = promise.success(())
+      ,
+      duration.toMillis,
+      TimeUnit.MILLISECONDS
+    )
+    promise.future
+
+  private def timeoutAfter(duration: FiniteDuration, message: String): Future[Nothing] =
+    val promise = Promise[Nothing]()
+    scheduler.schedule(
+      new Runnable:
+        def run(): Unit = promise.failure(new java.util.concurrent.TimeoutException(message))
+      ,
+      duration.toMillis,
+      TimeUnit.MILLISECONDS
+    )
+    promise.future
 
   def initialize(): Future[Boolean] =
     if initialized then
@@ -28,14 +57,11 @@ class MetalsClient(projectPath: Path, lspClient: LspClient)(using ExecutionConte
       val initializeFuture = lspClient.sendRequest("initialize", Some(initParams))
 
       // Add a timeout to avoid hanging forever
-      val timeoutFuture = scala.concurrent.Future {
-        Thread.sleep(120000) // 2 minutes - allow time for large responses and project setup
-        throw new java.util.concurrent.TimeoutException("Initialize request timed out after 2 minutes")
-      }
+      val timeoutFuture = timeoutAfter(120.seconds, "Initialize request timed out after 2 minutes")
 
       scala.concurrent.Future
         .firstCompletedOf(Seq(initializeFuture, timeoutFuture))
-        .map { result =>
+        .flatMap { result =>
           logger.info("Received initialize response from Metals")
           val hasCapabilities = result.hcursor.downField("capabilities").succeeded
 
@@ -45,18 +71,18 @@ class MetalsClient(projectPath: Path, lspClient: LspClient)(using ExecutionConte
             logger.info("Sending initialized notification...")
             lspClient.sendNotification("initialized", Some(Json.obj()))
 
-            // Small delay to let Metals process the initialized notification
-            Thread.sleep(500)
-            logger.info("Configuring Metals...")
-            configureMetals()
+            delay(500.millis).map { _ =>
+              logger.info("Configuring Metals...")
+              configureMetals()
 
-            initialized = true
-            logger.info("Initialization complete!")
-            true
+              initialized = true
+              logger.info("Initialization complete!")
+              true
+            }
           else
             logger.severe("Failed to initialize Metals language server - no capabilities in response")
             logger.severe(s"Response was: $result")
-            false
+            Future.successful(false)
         }
         .recover { case e =>
           logger.severe(s"Metals initialization failed: ${e.getMessage}")
@@ -170,4 +196,6 @@ class MetalsClient(projectPath: Path, lspClient: LspClient)(using ExecutionConte
 
   def shutdown(): Future[Unit] =
     logger.info("Shutting down Metals client...")
-    lspClient.shutdown().map(_ => ())
+    lspClient.shutdown().map(_ => ()).andThen { case _ =>
+      scheduler.shutdown()
+    }

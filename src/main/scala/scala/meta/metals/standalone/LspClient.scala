@@ -4,7 +4,7 @@ import io.circe.*
 import io.circe.parser.*
 import io.circe.syntax.*
 
-import java.io.{OutputStreamWriter, PrintWriter}
+import java.io.{BufferedReader, InputStreamReader, OutputStreamWriter, PrintWriter}
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{ConcurrentHashMap, ExecutorService, Executors}
@@ -24,10 +24,16 @@ class LspClient(process: Process)(using ExecutionContext):
 
   private val stdin  = new PrintWriter(new OutputStreamWriter(process.getOutputStream, StandardCharsets.UTF_8), true)
   private val stdout = process.getInputStream
+  private val stderr = process.getErrorStream
 
   @volatile private var shutdownRequested     = false
   private val readerExecutor: ExecutorService = Executors.newSingleThreadExecutor(r =>
     val thread = new Thread(r, "lsp-reader")
+    thread.setDaemon(true)
+    thread
+  )
+  private val stderrExecutor: ExecutorService = Executors.newSingleThreadExecutor(r =>
+    val thread = new Thread(r, "lsp-stderr")
     thread.setDaemon(true)
     thread
   )
@@ -62,6 +68,12 @@ class LspClient(process: Process)(using ExecutionContext):
           logger.info("LSP message reader thread started")
           promise.success(())
           readMessages()
+    )
+    stderrExecutor.submit(
+      new Runnable:
+        def run(): Unit =
+          logger.info("LSP stderr reader thread started")
+          readErrorStream()
     )
 
     promise.future
@@ -124,6 +136,19 @@ class LspClient(process: Process)(using ExecutionContext):
     catch
       case e: Exception if !shutdownRequested =>
         logger.severe(s"Error reading messages: ${e.getMessage}")
+
+  private def readErrorStream(): Unit =
+    val reader = new BufferedReader(new InputStreamReader(stderr, StandardCharsets.UTF_8))
+    try
+      var line = reader.readLine()
+      while line != null && !shutdownRequested do
+        if line.nonEmpty then logger.info(s"Metals stderr: $line")
+        line = reader.readLine()
+    catch
+      case e: Exception if !shutdownRequested =>
+        logger.warning(s"Error reading stderr: ${e.getMessage}")
+    finally
+      Try(reader.close())
 
   private def parseAndHandleMessage(messageJson: String): Unit =
     logger.info(s"Parsing LSP message: ${messageJson.take(200)}${if messageJson.length > 200 then "..." else ""}")
@@ -379,9 +404,11 @@ class LspClient(process: Process)(using ExecutionContext):
         Try {
           stdin.close()
           stdout.close()
+          stderr.close()
         }
 
         readerExecutor.shutdown()
+        stderrExecutor.shutdown()
 
         if process.isAlive then
           process.destroy()
@@ -395,8 +422,10 @@ class LspClient(process: Process)(using ExecutionContext):
         Try {
           stdin.close()
           stdout.close()
+          stderr.close()
         }
 
         readerExecutor.shutdown()
+        stderrExecutor.shutdown()
         process.destroyForcibly()
     }

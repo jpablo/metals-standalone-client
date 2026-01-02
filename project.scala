@@ -1,18 +1,14 @@
 //> using scala "3.7.1"
 
 // JSON processing dependencies
-//> using dep "io.circe::circe-core:0.14.14"
-//> using dep "io.circe::circe-parser:0.14.14"
-
-// CLI argument parsing
-//> using dep "com.github.scopt::scopt:4.1.0"
+//> using dep "io.circe::circe-core:0.14.15"
+//> using dep "io.circe::circe-parser:0.14.15"
 
 // HTTP client for health checks
 //> using dep "com.softwaremill.sttp.client3::core:3.11.0"
-//> using dep "com.softwaremill.sttp.client3::circe:3.11.0"
 
 // Test dependencies
-//> using test.dep "org.scalameta::munit:1.1.1"
+//> using test.dep "org.scalameta::munit:1.2.1"
 
 // Compiler options
 //> using option "-deprecation"

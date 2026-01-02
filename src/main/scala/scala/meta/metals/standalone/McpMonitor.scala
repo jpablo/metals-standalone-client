@@ -8,7 +8,7 @@ import java.nio.file.{Files, Path}
 import java.util.concurrent.{Executors, ScheduledExecutorService, TimeUnit}
 import java.util.logging.Logger
 import scala.concurrent.duration.*
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
 
 /** Monitor and manage MCP server configuration. Watches for configuration files and tests server health.
   */
@@ -116,7 +116,7 @@ class McpMonitor(projectPath: Path)(using ExecutionContext):
         None
 
   def testMcpConnection(url: String, timeoutSeconds: Int = 5): Future[Boolean] =
-    Future {
+    Future(blocking {
       try
         // Try to connect to the base URL (without /sse endpoint)
         val baseUrl = url.stripSuffix("/sse").stripSuffix("/")
@@ -134,7 +134,7 @@ class McpMonitor(projectPath: Path)(using ExecutionContext):
         case e: Exception =>
           logger.info(s"MCP connection test failed: ${e.getMessage}")
           false
-    }
+    })
 
   def waitForMcpServer(timeoutSeconds: Int = 60): Future[Option[String]] =
     val startTime = System.currentTimeMillis()
@@ -215,3 +215,10 @@ class McpMonitor(projectPath: Path)(using ExecutionContext):
         }
 
     healthCheck()
+
+  def shutdown(): Unit =
+    scheduler.shutdown()
+    try httpClient.close()
+    catch
+      case e: Exception =>
+        logger.warning(s"Error shutting down MCP HTTP client: ${e.getMessage}")

@@ -4,11 +4,11 @@ import io.circe.*
 import io.circe.parser.*
 import io.circe.syntax.*
 
-import java.io.{BufferedReader, InputStreamReader, OutputStreamWriter, PrintWriter}
+import java.io.{BufferedInputStream, BufferedReader, ByteArrayOutputStream, InputStreamReader, OutputStreamWriter, PrintWriter}
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{ConcurrentHashMap, ExecutorService, Executors}
-import java.util.logging.Logger
+import java.util.logging.{Level, Logger}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success, Try}
 
@@ -78,64 +78,71 @@ class LspClient(process: Process)(using ExecutionContext):
 
     promise.future
 
+  private val headerDelimiter = Array('\r'.toByte, '\n'.toByte, '\r'.toByte, '\n'.toByte)
+
   private def readMessages(): Unit =
-    var buffer = ""
+    val input = new BufferedInputStream(stdout)
     logger.info("Starting to read messages from Metals process...")
 
     try
       var shouldContinue = true
       while !shutdownRequested && process.isAlive && shouldContinue do
-        // Read available data in chunks
-        val bytes     = new Array[Byte](4096)
-        val bytesRead = stdout.read(bytes)
-
-        if bytesRead == -1 then
-          logger.warning("End of stream from Metals process")
-          shouldContinue = false
-        else if bytesRead == 0 then Thread.sleep(10)
-        else
-          val data = new String(bytes, 0, bytesRead, StandardCharsets.UTF_8)
-          buffer += data
-
-          // Process complete messages
-          var processMessages = true
-          while buffer.contains("\r\n\r\n") && processMessages do
-            val headerEnd = buffer.indexOf("\r\n\r\n")
-            val header    = buffer.substring(0, headerEnd)
-            buffer = buffer.substring(headerEnd + 4)
-
-            // Parse content length from header
-            var contentLength = 0
-            for line <- header.split("\r\n") do
-              if line.startsWith("Content-Length:") then contentLength = line.split(":")(1).trim.toInt
-
-            if contentLength > 0 then
-              // Wait for complete message body
-              var readingBody = true
-              while buffer.length < contentLength && readingBody do
-                val needed        = contentLength - buffer.length
-                val moreBytes     = new Array[Byte](math.min(needed, 4096))
-                val moreBytesRead = stdout.read(moreBytes)
-
-                if moreBytesRead == -1 then
-                  logger.warning("Unexpected end of stream while reading message body")
-                  readingBody = false
-                  processMessages = false
-                  shouldContinue = false
-                else if moreBytesRead == 0 then Thread.sleep(10)
-                else
-                  val moreData = new String(moreBytes, 0, moreBytesRead, StandardCharsets.UTF_8)
-                  buffer += moreData
-
-              if buffer.length >= contentLength then
-                val messageJson = buffer.substring(0, contentLength)
-                buffer = buffer.substring(contentLength)
-
-                logger.info(s"Raw LSP message received (length: $contentLength): $messageJson")
-                parseAndHandleMessage(messageJson)
+        readHeader(input) match
+          case Some(header) =>
+            parseContentLength(header) match
+              case Some(contentLength) if contentLength > 0 =>
+                readBody(input, contentLength) match
+                  case Some(body) =>
+                    val messageJson = new String(body, StandardCharsets.UTF_8)
+                    if logger.isLoggable(Level.INFO) then
+                      val preview = messageJson.take(200)
+                      val suffix  = if messageJson.length > 200 then "..." else ""
+                      logger.info(s"Raw LSP message received (length: $contentLength): $preview$suffix")
+                    parseAndHandleMessage(messageJson)
+                  case None =>
+                    logger.warning("Unexpected end of stream while reading message body")
+                    shouldContinue = false
+              case _ =>
+                logger.warning("Missing Content-Length header in LSP message")
+          case None =>
+            logger.warning("End of stream from Metals process")
+            shouldContinue = false
     catch
       case e: Exception if !shutdownRequested =>
         logger.severe(s"Error reading messages: ${e.getMessage}")
+
+  private def readHeader(input: BufferedInputStream): Option[String] =
+    val headerBytes = new ByteArrayOutputStream()
+    var matched     = 0
+    var nextByte    = input.read()
+
+    while nextByte != -1 && matched < headerDelimiter.length do
+      headerBytes.write(nextByte)
+      if nextByte == headerDelimiter(matched) then matched += 1
+      else matched = if nextByte == headerDelimiter(0) then 1 else 0
+      if matched < headerDelimiter.length then nextByte = input.read()
+
+    if nextByte == -1 then None
+    else Some(headerBytes.toString(StandardCharsets.US_ASCII))
+
+  private def parseContentLength(header: String): Option[Int] =
+    header
+      .split("\r\n")
+      .iterator
+      .find(_.toLowerCase.startsWith("content-length:"))
+      .flatMap { line =>
+        val parts = line.split(":", 2)
+        if parts.length == 2 then Try(parts(1).trim.toInt).toOption else None
+      }
+
+  private def readBody(input: BufferedInputStream, contentLength: Int): Option[Array[Byte]] =
+    val body   = new Array[Byte](contentLength)
+    var offset = 0
+    while offset < contentLength do
+      val read = input.read(body, offset, contentLength - offset)
+      if read == -1 then return None
+      offset += read
+    Some(body)
 
   private def readErrorStream(): Unit =
     val reader = new BufferedReader(new InputStreamReader(stderr, StandardCharsets.UTF_8))
@@ -151,7 +158,8 @@ class LspClient(process: Process)(using ExecutionContext):
       Try(reader.close())
 
   private def parseAndHandleMessage(messageJson: String): Unit =
-    logger.info(s"Parsing LSP message: ${messageJson.take(200)}${if messageJson.length > 200 then "..." else ""}")
+    if logger.isLoggable(Level.INFO) then
+      logger.info(s"Parsing LSP message: ${messageJson.take(200)}${if messageJson.length > 200 then "..." else ""}")
     parse(messageJson) match
       case Right(json) =>
         logger.info("Successfully parsed LSP message")
@@ -163,7 +171,8 @@ class LspClient(process: Process)(using ExecutionContext):
   private def handleMessage(message: Json): Unit =
     val cursor = message.hcursor
 
-    logger.info(s"Processing message: ${message.noSpaces.take(100)}...")
+    if logger.isLoggable(Level.INFO) then
+      logger.info(s"Processing message: ${message.noSpaces.take(100)}...")
 
     // Check if this is a response to our request
     cursor.downField("id").as[Int] match
@@ -173,7 +182,8 @@ class LspClient(process: Process)(using ExecutionContext):
         cursor.downField("result").as[Json] match
           case Right(result) =>
             logger.info(s"LSP request $id completed successfully")
-            logger.info(s"Response result: ${result.noSpaces.take(200)}...")
+            if logger.isLoggable(Level.INFO) then
+              logger.info(s"Response result: ${result.noSpaces.take(200)}...")
             promise.success(result)
           case Left(_)       =>
             cursor.downField("error").as[Json] match
@@ -271,7 +281,8 @@ class LspClient(process: Process)(using ExecutionContext):
       case None    => Json.obj()
     )
 
-    logger.info(s"LSP request JSON: ${request.noSpaces}")
+    if logger.isLoggable(Level.INFO) then
+      logger.info(s"LSP request JSON: ${request.noSpaces}")
     sendMessage(request)
     logger.info(s"LSP request sent: $method (id: $id)")
     promise.future

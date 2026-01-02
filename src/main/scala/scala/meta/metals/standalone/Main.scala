@@ -12,47 +12,58 @@ import scala.concurrent.{ExecutionContext, Future}
 object Main:
   private val logger = Logger.getLogger(Main.getClass.getName)
 
+  sealed trait ParseResult
+  case class Parsed(config: Config) extends ParseResult
+  case object HelpRequested extends ParseResult
+  case class InvalidArgs(args: List[String]) extends ParseResult
+
   case class Config(
       projectPath: Path = Paths.get(".").toAbsolutePath.normalize(),
       verbose: Boolean = false
   )
 
   def main(args: Array[String]): Unit =
-    val config = parseArgs(args)
-    setupLogging(config.verbose)
+    parseArgs(args) match
+      case Parsed(config) =>
+        setupLogging(config.verbose)
 
-    val app = new MetalsLight(config.projectPath, config.verbose)
+        val app = new MetalsLight(config.projectPath, config.verbose)
 
-    sys.addShutdownHook {
-      logger.info("\nShutting down...")
-      app.shutdown()
-    }
+        sys.addShutdownHook {
+          logger.info("\nShutting down...")
+          app.shutdown()
+        }
 
-    val exitCode = app.run()
-    sys.exit(exitCode)
-
-  private def parseArgs(args: Array[String]): Config =
-    args.toList match
-      case Nil                              => Config()
-      case "--help" :: _ | "-h" :: _        =>
+        val exitCode = app.run()
+        sys.exit(exitCode)
+      case HelpRequested =>
+        setupLogging(true)
         printUsage()
         sys.exit(0)
-      case "--verbose" :: Nil | "-v" :: Nil =>
-        Config(verbose = true)
-      case "--verbose" :: path :: Nil       =>
-        Config(Paths.get(path).toAbsolutePath.normalize(), verbose = true)
-      case "-v" :: path :: Nil              =>
-        Config(Paths.get(path).toAbsolutePath.normalize(), verbose = true)
-      case path :: "--verbose" :: Nil       =>
-        Config(Paths.get(path).toAbsolutePath.normalize(), verbose = true)
-      case path :: "-v" :: Nil              =>
-        Config(Paths.get(path).toAbsolutePath.normalize(), verbose = true)
-      case path :: Nil                      =>
-        Config(Paths.get(path).toAbsolutePath.normalize())
-      case invalid                          =>
+      case InvalidArgs(invalid) =>
+        setupLogging(true)
         logger.severe(s"Error: Invalid arguments: ${invalid.mkString(" ")}")
         printUsage()
         sys.exit(1)
+
+  def parseArgs(args: Array[String]): ParseResult =
+    args.toList match
+      case Nil                              => Parsed(Config())
+      case "--help" :: _ | "-h" :: _        => HelpRequested
+      case "--verbose" :: Nil | "-v" :: Nil =>
+        Parsed(Config(verbose = true))
+      case "--verbose" :: path :: Nil       =>
+        Parsed(Config(Paths.get(path).toAbsolutePath.normalize(), verbose = true))
+      case "-v" :: path :: Nil              =>
+        Parsed(Config(Paths.get(path).toAbsolutePath.normalize(), verbose = true))
+      case path :: "--verbose" :: Nil       =>
+        Parsed(Config(Paths.get(path).toAbsolutePath.normalize(), verbose = true))
+      case path :: "-v" :: Nil              =>
+        Parsed(Config(Paths.get(path).toAbsolutePath.normalize(), verbose = true))
+      case path :: Nil                      =>
+        Parsed(Config(Paths.get(path).toAbsolutePath.normalize()))
+      case invalid                          =>
+        InvalidArgs(invalid)
 
   private def printUsage(): Unit =
     logger.info("""
@@ -107,6 +118,7 @@ class MetalsLight(projectPath: Path, verbose: Boolean):
   private var launcher: Option[MetalsLauncher]   = None
   private var lspClient: Option[LspClient]       = None
   private var metalsClient: Option[MetalsClient] = None
+  private var monitor: Option[McpMonitor]        = None
 
   def run(): Int =
     try
@@ -132,7 +144,7 @@ class MetalsLight(projectPath: Path, verbose: Boolean):
       import scala.concurrent.duration.*
       import scala.util.Try
       Try:
-        scala.concurrent.Await.result(
+        val success = scala.concurrent.Await.result(
           client.start().flatMap { _ =>
             logger.info("🔗 Connected to Metals LSP server")
 
@@ -143,13 +155,14 @@ class MetalsLight(projectPath: Path, verbose: Boolean):
               if success then
                 logger.info("✅ Metals language server initialized")
 
-                val monitor = new McpMonitor(projectPath)
+                val monitorInstance = new McpMonitor(projectPath)
+                monitor = Some(monitorInstance)
 
                 logger.info("⏳ Waiting for MCP server to start...")
-                monitor.waitForMcpServer().flatMap {
+                monitorInstance.waitForMcpServer().flatMap {
                   case Some(mcpUrl) =>
-                    monitor.printConnectionInfo(mcpUrl)
-                    monitor.monitorMcpHealth(mcpUrl)
+                    monitorInstance.printConnectionInfo(mcpUrl)
+                    monitorInstance.monitorMcpHealth(mcpUrl)
                   case None         =>
                     logger.severe("❌ MCP server failed to start")
                     Future.successful(false)
@@ -161,7 +174,7 @@ class MetalsLight(projectPath: Path, verbose: Boolean):
           },
           Duration.Inf
         )
-        0
+        if success then 0 else 1
       .recover {
         case _: InterruptedException =>
           logger.info("\n🛑 Interrupted by user")
@@ -210,6 +223,15 @@ class MetalsLight(projectPath: Path, verbose: Boolean):
       catch
         case e: Exception =>
           logger.warning(s"Error shutting down Metals launcher: ${e.getMessage}")
+    }
+
+    monitor.foreach { monitor =>
+      try
+        monitor.shutdown()
+        logger.info("✅ MCP monitor shutdown")
+      catch
+        case e: Exception =>
+          logger.warning(s"Error shutting down MCP monitor: ${e.getMessage}")
     }
 
     logger.info("👋 Goodbye!")

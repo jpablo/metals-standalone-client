@@ -4,6 +4,7 @@ import java.nio.file.{Files, Path, Paths}
 import scala.jdk.CollectionConverters.*
 import scala.jdk.OptionConverters.*
 import scala.util.Try
+import scala.util.Using
 import java.util.logging.Logger
 
 /** Launches and manages the Metals language server process.
@@ -42,7 +43,7 @@ class MetalsLauncher(projectPath: Path):
         val command        = Seq(cs, "fetch", "--classpath", s"org.scalameta:metals_2.13:$metalsVersion")
         val processBuilder = new java.lang.ProcessBuilder(command.asJava)
         val process        = processBuilder.start()
-        val result         = scala.io.Source.fromInputStream(process.getInputStream).mkString.trim
+        val result         = Using.resource(scala.io.Source.fromInputStream(process.getInputStream))(_.mkString.trim)
         process.waitFor()
 
         if result.nonEmpty then findJavaExecutable().map(java => MetalsInstallation.CoursierInstallation(java, result))
@@ -72,11 +73,12 @@ class MetalsLauncher(projectPath: Path):
 
     if Files.exists(metalsTarget) then
       Try:
-        Files
-          .walk(metalsTarget)
-          .filter(p => p.toString.endsWith(".jar") && p.toString.contains("metals"))
-          .findFirst()
-          .toScala
+        Using.resource(Files.walk(metalsTarget)) { stream =>
+          stream
+            .filter(p => p.toString.endsWith(".jar") && p.toString.contains("metals"))
+            .findFirst()
+            .toScala
+        }
       .toOption.flatten.flatMap: jarPath =>
         findJavaExecutable().map(java => MetalsInstallation.JarInstallation(java, jarPath.toString))
     else None
@@ -88,7 +90,7 @@ class MetalsLauncher(projectPath: Path):
     Try:
       val processBuilder = new java.lang.ProcessBuilder("which", name)
       val process        = processBuilder.start()
-      val result         = scala.io.Source.fromInputStream(process.getInputStream).mkString.trim
+      val result         = Using.resource(scala.io.Source.fromInputStream(process.getInputStream))(_.mkString.trim)
       process.waitFor()
       if result.nonEmpty then Some(result) else None
     .getOrElse(None)
@@ -172,9 +174,9 @@ class MetalsLauncher(projectPath: Path):
       val scalaExtensions = Seq(".scala", ".sc")
       val hasScalaFiles   =
         Try:
-          Files
-            .walk(projectPath)
-            .anyMatch(p => scalaExtensions.exists(ext => p.toString.endsWith(ext)))
+          Using.resource(Files.walk(projectPath)) { stream =>
+            stream.anyMatch(p => scalaExtensions.exists(ext => p.toString.endsWith(ext)))
+          }
         .getOrElse(false)
 
       if hasScalaFiles then

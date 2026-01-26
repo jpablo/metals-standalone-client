@@ -17,7 +17,7 @@ class MetalsLauncher(projectPath: Path):
   private val logger = Logger.getLogger(classOf[MetalsLauncher].getName)
 
   private var metalsProcess: Option[java.lang.Process] = None
-  private val metalsVersion                            = sys.env.getOrElse("METALS_VERSION", "1.6.0")
+  private val metalsVersion                            = sys.env.getOrElse("METALS_VERSION", "1.+")
 
   enum MetalsInstallation:
     case CoursierInstallation(javaExecutable: String, classpath: String)

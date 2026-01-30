@@ -182,7 +182,9 @@ class McpMonitor(projectPath: Path)(using ExecutionContext):
   def getClaudeCommand(mcpUrl: String): String =
     val projectName = projectPath.getFileName.toString
     val serverName  = s"$projectName-metals"
-    s"claude mcp add --transport sse $serverName $mcpUrl"
+    // starting with 1.6.5, metals uses the streamable http transport: https://scalameta.org/metals/blog/2026/01/21/osmium#switch-to-streamable-http-standard
+    val transport = if (mcpUrl.endsWith("/mcp")) "http" else "sse"
+    s"claude mcp add --transport $transport $serverName $mcpUrl"
 
   def printConnectionInfo(mcpUrl: String): Unit =
     println()

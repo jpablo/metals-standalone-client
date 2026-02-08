@@ -121,6 +121,7 @@ class MetalsLight(projectPath: Path, verbose: Boolean):
   private var monitor: Option[McpMonitor]        = None
 
   def run(): Int =
+    val spinner = new Spinner
     try
       logger.info("🚀 Starting Metals standalone MCP client...")
 
@@ -132,9 +133,11 @@ class MetalsLight(projectPath: Path, verbose: Boolean):
         return 1
 
       logger.info("📦 Launching Metals language server...")
+      if !verbose then spinner.start("Starting Metals...")
       val process = metalsLauncher.launchMetals() match
         case Some(p) => p
         case None    =>
+          spinner.stop()
           logger.severe("❌ Failed to launch Metals")
           return 1
 
@@ -151,6 +154,7 @@ class MetalsLight(projectPath: Path, verbose: Boolean):
             val metals = new MetalsClient(projectPath, client)
             metalsClient = Some(metals)
 
+            spinner.update("Initializing...")
             metals.initialize().flatMap { success =>
               if success then
                 val versionSuffix = metals.serverVersion.map(v => s" (v$v)").getOrElse("")
@@ -160,15 +164,19 @@ class MetalsLight(projectPath: Path, verbose: Boolean):
                 monitor = Some(monitorInstance)
 
                 logger.info("⏳ Waiting for MCP server to start...")
+                spinner.update("Waiting for MCP server...")
                 monitorInstance.waitForMcpServer().flatMap {
                   case Some(mcpUrl) =>
+                    spinner.stop()
                     monitorInstance.printConnectionInfo(mcpUrl, metals.serverVersion)
                     monitorInstance.monitorMcpHealth(mcpUrl)
                   case None         =>
+                    spinner.stop()
                     logger.severe("❌ MCP server failed to start")
                     Future.successful(false)
                 }
               else
+                spinner.stop()
                 logger.severe("❌ Failed to initialize Metals")
                 Future.successful(false)
             }
@@ -178,9 +186,11 @@ class MetalsLight(projectPath: Path, verbose: Boolean):
         if success then 0 else 1
       .recover {
         case _: InterruptedException =>
+          spinner.stop()
           logger.info("\n🛑 Interrupted by user")
           0
         case e: Exception            =>
+          spinner.stop()
           logger.severe(s"❌ Application failed: ${e.getMessage}")
           if verbose then e.printStackTrace()
           1

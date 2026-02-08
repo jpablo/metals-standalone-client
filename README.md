@@ -6,6 +6,34 @@ A standalone client that launches the Metals language server with MCP (Model Con
 
 This tool provides a headless way to run Metals language server with MCP capabilities, allowing AI code assistants like Claude to understand and work with your Scala codebase. It automatically discovers Metals installations, configures the language server, and monitors MCP server health.
 
+## Why is this needed and how does it work?
+
+Metals is a Scala language server that normally runs inside an editor (VS Code, Neovim, etc.). The editor acts as an LSP client: it launches Metals, performs the initialization handshake, and sends configuration. Without an editor doing this work, Metals doesn't start.
+
+This standalone client replaces the editor. It acts as a **headless LSP client** so that Metals can run without any editor open. Here's what happens when you run it:
+
+1. The standalone client **discovers and launches Metals** as a subprocess (via Coursier).
+2. It **performs the LSP handshake** over stdin/stdout (initialize, initialized) using JSON-RPC 2.0.
+3. It **configures Metals to enable its built-in MCP server** by sending `startMcpServer: true`.
+4. Metals starts the MCP server and **writes a `.mcp.json` file** at your project root with the connection URL:
+   ```json
+   {
+     "mcpServers": {
+       "metals": {
+         "url": "http://localhost:<port>/mcp",
+         "type": "http"
+       }
+     }
+   }
+   ```
+5. The standalone client **monitors the MCP server health** via HTTP polling to make sure it stays up.
+
+Once this is running, you can open Claude Code (or another MCP-aware AI assistant) in your Scala project directory. Claude Code **automatically discovers the `.mcp.json` file** and connects to the Metals MCP server — no manual `claude mcp add` needed. It will prompt you to approve the server on first use.
+
+This gives AI assistants access to Scala language intelligence (go-to-definition, find-references, completions, diagnostics, etc.) without requiring an IDE.
+
+For a detailed diagram and component breakdown, see [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ## Quick Start
 
 ### Download Pre-built Executables
@@ -67,20 +95,18 @@ scala-cli run . -- --verbose /path/to/scala/project
 
 ### Using with Claude Code
 
-Once the Metals standalone client is running, you can configure Claude Code to use the MCP server:
-
-```bash
-claude mcp add --transport sse metals http://localhost:60013/sse
-```
-
-This will enable Claude Code to interact with your Scala project through the Metals language server.
+Once the standalone client is running, simply open Claude Code in your Scala project directory. Metals writes a `.mcp.json` file at the project root that Claude Code auto-discovers — no manual configuration needed. You'll be prompted to approve the MCP server on first use.
 
 ### MCP Configuration Files
 
-The tool automatically looks for MCP configuration files in:
-- `.metals/mcp.json`
-- `.cursor/mcp.json`
-- `.vscode/mcp.json`
+Metals writes MCP configuration to different locations depending on the detected client:
+
+| Client | Config path |
+|--------|-------------|
+| Claude Code | `.mcp.json` (project root) |
+| Cursor | `.cursor/mcp.json` |
+| VS Code | `.vscode/mcp.json` |
+| No client detected | `.metals/mcp.json` |
 
 ### Metals Version Override
 

@@ -194,13 +194,23 @@ class McpMonitorTest extends FunSuite:
 
     assertEquals(result, None)
 
-  test("getClaudeCommand generates correct command"):
+  test("getClaudeCommand generates correct command for SSE transport"):
     val tempDir = Files.createTempDirectory("test-project")
     val monitor = new McpMonitor(tempDir)
 
     val command = monitor.getClaudeCommand("http://localhost:8080/sse")
     val expectedProjectName = tempDir.getFileName.toString
     val expected = s"claude mcp add --transport sse $expectedProjectName-metals http://localhost:8080/sse"
+
+    assertEquals(command, expected)
+
+  test("getClaudeCommand generates correct command for Streamable HTTP transport"):
+    val tempDir = Files.createTempDirectory("test-project")
+    val monitor = new McpMonitor(tempDir)
+
+    val command = monitor.getClaudeCommand("http://localhost:8080/mcp")
+    val expectedProjectName = tempDir.getFileName.toString
+    val expected = s"claude mcp add --transport http $expectedProjectName-metals http://localhost:8080/mcp"
 
     assertEquals(command, expected)
 

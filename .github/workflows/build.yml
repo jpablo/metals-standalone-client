@@ -65,21 +65,10 @@ jobs:
       shell: bash
       run: |
         mkdir -p artifacts
-        # scala-cli creates self-contained executables, so just copy them
         if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-          # On Windows, scala-cli creates a .bat file and .jar
-          cp metals-standalone-client artifacts/metals-standalone-client.bat 2>/dev/null || echo "No .bat file found"
-          cp metals-standalone-client.jar artifacts/metals-standalone-client.jar 2>/dev/null || echo "No .jar file found"
-          # If no .bat file, create one
-          if [[ ! -f artifacts/metals-standalone-client.bat ]]; then
-            cat > artifacts/metals-standalone-client.bat << 'EOF'
-        @echo off
-        java -jar "%~dp0metals-standalone-client.jar" %*
-        EOF
-            cp metals-standalone-client artifacts/metals-standalone-client.jar
-          fi
+          # On Windows, the assembly JAR is the single executable
+          cp metals-standalone-client artifacts/metals-standalone-client.bat
         else
-          # On Unix systems, scala-cli creates a self-contained executable
           cp metals-standalone-client artifacts/
           chmod +x artifacts/metals-standalone-client
         fi
@@ -123,7 +112,6 @@ jobs:
         cp metals-standalone-client-linux/metals-standalone-client metals-standalone-client-linux-executable
         cp metals-standalone-client-macos/metals-standalone-client metals-standalone-client-macos-executable
         cp metals-standalone-client-windows/metals-standalone-client.bat metals-standalone-client-windows-executable.bat
-        cp metals-standalone-client-windows/metals-standalone-client.jar metals-standalone-client-windows-executable.jar
 
     - name: Generate release tag
       id: tag
@@ -161,10 +149,8 @@ jobs:
           
           ### Windows
           ```cmd
-          # Download both files to the same directory
+          # Download the executable
           # Download: metals-standalone-client-windows-executable.bat
-          # Download: metals-standalone-client-windows-executable.jar
-          # Then run:
           metals-standalone-client-windows-executable.bat --help
           ```
           
@@ -176,7 +162,6 @@ jobs:
           release-artifacts/metals-standalone-client-linux-executable
           release-artifacts/metals-standalone-client-macos-executable
           release-artifacts/metals-standalone-client-windows-executable.bat
-          release-artifacts/metals-standalone-client-windows-executable.jar
         draft: false
         prerelease: false
       env:

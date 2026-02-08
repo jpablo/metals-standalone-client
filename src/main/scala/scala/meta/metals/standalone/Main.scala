@@ -19,7 +19,8 @@ object Main:
 
   case class Config(
       projectPath: Path = Paths.get(".").toAbsolutePath.normalize(),
-      verbose: Boolean = false
+      verbose: Boolean = false,
+      metalsArgs: Seq[String] = Seq.empty
   )
 
   def main(args: Array[String]): Unit =
@@ -27,7 +28,7 @@ object Main:
       case Parsed(config) =>
         setupLogging(config.verbose)
 
-        val app = new MetalsLight(config.projectPath, config.verbose)
+        val app = new MetalsLight(config.projectPath, config.verbose, config.metalsArgs)
 
         sys.addShutdownHook {
           logger.info("\nShutting down...")
@@ -47,21 +48,24 @@ object Main:
         sys.exit(1)
 
   def parseArgs(args: Array[String]): ParseResult =
-    args.toList match
-      case Nil                              => Parsed(Config())
+    val (clientArgs, rest) = args.toList.span(_ != "--")
+    val metalsArgs         = rest.drop(1) // drop the "--" separator itself
+
+    clientArgs match
+      case Nil                              => Parsed(Config(metalsArgs = metalsArgs))
       case "--help" :: _ | "-h" :: _        => HelpRequested
       case "--verbose" :: Nil | "-v" :: Nil =>
-        Parsed(Config(verbose = true))
+        Parsed(Config(verbose = true, metalsArgs = metalsArgs))
       case "--verbose" :: path :: Nil       =>
-        Parsed(Config(Paths.get(path).toAbsolutePath.normalize(), verbose = true))
+        Parsed(Config(Paths.get(path).toAbsolutePath.normalize(), verbose = true, metalsArgs = metalsArgs))
       case "-v" :: path :: Nil              =>
-        Parsed(Config(Paths.get(path).toAbsolutePath.normalize(), verbose = true))
+        Parsed(Config(Paths.get(path).toAbsolutePath.normalize(), verbose = true, metalsArgs = metalsArgs))
       case path :: "--verbose" :: Nil       =>
-        Parsed(Config(Paths.get(path).toAbsolutePath.normalize(), verbose = true))
+        Parsed(Config(Paths.get(path).toAbsolutePath.normalize(), verbose = true, metalsArgs = metalsArgs))
       case path :: "-v" :: Nil              =>
-        Parsed(Config(Paths.get(path).toAbsolutePath.normalize(), verbose = true))
+        Parsed(Config(Paths.get(path).toAbsolutePath.normalize(), verbose = true, metalsArgs = metalsArgs))
       case path :: Nil                      =>
-        Parsed(Config(Paths.get(path).toAbsolutePath.normalize()))
+        Parsed(Config(Paths.get(path).toAbsolutePath.normalize(), metalsArgs = metalsArgs))
       case invalid                          =>
         InvalidArgs(invalid)
 
@@ -69,11 +73,12 @@ object Main:
     logger.info("""
                   |Metals Standalone MCP Client
                   |
-                  |Usage: metals-standalone-client [OPTIONS] [PROJECT_PATH]
-                  |   or: sbt run [OPTIONS] [PROJECT_PATH]
+                  |Usage: metals-standalone-client [OPTIONS] [PROJECT_PATH] [-- METALS_ARGS...]
+                  |   or: sbt run [OPTIONS] [PROJECT_PATH] [-- METALS_ARGS...]
                   |
                   |Arguments:
                   |  PROJECT_PATH    Path to Scala project directory (default: current directory)
+                  |  METALS_ARGS     Extra arguments passed directly to the Metals process
                   |
                   |Options:
                   |  -v, --verbose   Enable verbose logging
@@ -83,7 +88,8 @@ object Main:
                   |  metals-standalone-client                    # Use current directory
                   |  metals-standalone-client /path/to/project   # Use specific project path
                   |  metals-standalone-client --verbose .        # Enable verbose logging
-                  |  sbt "run --verbose /my/scala/project"       # Run via SBT
+                  |  metals-standalone-client -- -Dmetals.verbose  # Pass JVM flags to Metals
+                  |  metals-standalone-client /path -- -Xmx4g   # Project path + Metals args
                   |
                   |This tool starts Metals language server with MCP server enabled,
                   |allowing AI assistants to interact with your Scala project.
@@ -110,7 +116,7 @@ object Main:
 
 /** Core application logic for the standalone Metals client.
   */
-class MetalsLight(projectPath: Path, verbose: Boolean):
+class MetalsLight(projectPath: Path, verbose: Boolean, metalsArgs: Seq[String] = Seq.empty):
   private val logger = Logger.getLogger(classOf[MetalsLight].getName)
 
   implicit private val ec: ExecutionContext = ExecutionContext.global
@@ -125,7 +131,7 @@ class MetalsLight(projectPath: Path, verbose: Boolean):
     try
       logger.info("🚀 Starting Metals standalone MCP client...")
 
-      val metalsLauncher = new MetalsLauncher(projectPath)
+      val metalsLauncher = new MetalsLauncher(projectPath, metalsArgs)
       launcher = Some(metalsLauncher)
 
       if !metalsLauncher.validateProject() then

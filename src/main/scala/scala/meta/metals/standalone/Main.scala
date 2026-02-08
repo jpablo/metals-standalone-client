@@ -153,7 +153,8 @@ class MetalsLight(projectPath: Path, verbose: Boolean):
 
             metals.initialize().flatMap { success =>
               if success then
-                logger.info("✅ Metals language server initialized")
+                val versionSuffix = metals.serverVersion.map(v => s" (v$v)").getOrElse("")
+                logger.info(s"✅ Metals language server initialized$versionSuffix")
 
                 val monitorInstance = new McpMonitor(projectPath)
                 monitor = Some(monitorInstance)
@@ -161,7 +162,7 @@ class MetalsLight(projectPath: Path, verbose: Boolean):
                 logger.info("⏳ Waiting for MCP server to start...")
                 monitorInstance.waitForMcpServer().flatMap {
                   case Some(mcpUrl) =>
-                    monitorInstance.printConnectionInfo(mcpUrl)
+                    monitorInstance.printConnectionInfo(mcpUrl, metals.serverVersion)
                     monitorInstance.monitorMcpHealth(mcpUrl)
                   case None         =>
                     logger.severe("❌ MCP server failed to start")

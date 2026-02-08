@@ -15,6 +15,9 @@ class MetalsClient(projectPath: Path, lspClient: LspClient)(using ExecutionConte
   private val logger = Logger.getLogger(classOf[MetalsClient].getName)
 
   @volatile private var initialized = false
+  @volatile private var _serverVersion: Option[String] = None
+
+  def serverVersion: Option[String] = _serverVersion
   private val scheduler: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor(r =>
     val thread = new Thread(r, "metals-client-scheduler")
     thread.setDaemon(true)
@@ -66,6 +69,7 @@ class MetalsClient(projectPath: Path, lspClient: LspClient)(using ExecutionConte
           val hasCapabilities = result.hcursor.downField("capabilities").succeeded
 
           if hasCapabilities then
+            _serverVersion = result.hcursor.downField("serverInfo").downField("version").as[String].toOption
             logger.info("Metals language server initialized successfully")
 
             logger.info("Sending initialized notification...")

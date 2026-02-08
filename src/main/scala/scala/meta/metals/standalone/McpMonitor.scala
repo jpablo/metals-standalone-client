@@ -118,8 +118,8 @@ class McpMonitor(projectPath: Path)(using ExecutionContext):
   def testMcpConnection(url: String, timeoutSeconds: Int = 5): Future[Boolean] =
     Future(blocking {
       try
-        // Try to connect to the base URL (without /sse endpoint)
-        val baseUrl = url.stripSuffix("/sse").stripSuffix("/")
+        // Try to connect to the base URL (without /sse or /mcp endpoint)
+        val baseUrl = url.stripSuffix("/sse").stripSuffix("/mcp").stripSuffix("/")
 
         val request = basicRequest
           .get(uri"$baseUrl")
@@ -182,11 +182,13 @@ class McpMonitor(projectPath: Path)(using ExecutionContext):
   def getClaudeCommand(mcpUrl: String): String =
     val projectName = projectPath.getFileName.toString
     val serverName  = s"$projectName-metals"
-    s"claude mcp add --transport sse $serverName $mcpUrl"
+    val transport   = if mcpUrl.endsWith("/mcp") then "http" else "sse"
+    s"claude mcp add --transport $transport $serverName $mcpUrl"
 
-  def printConnectionInfo(mcpUrl: String): Unit =
+  def printConnectionInfo(mcpUrl: String, serverVersion: Option[String] = None): Unit =
+    val versionSuffix = serverVersion.map(v => s" (Metals v$v)").getOrElse("")
     println()
-    println("🎉 MCP server is running!")
+    println(s"🎉 MCP server is running!$versionSuffix")
     println(s"URL: $mcpUrl")
     println()
     println("To connect with Claude Code, run:")

@@ -28,7 +28,7 @@ This standalone client replaces the editor. It acts as a **headless LSP client**
    ```
 5. The standalone client **monitors the MCP server health** via HTTP polling to make sure it stays up.
 
-Once this is running, you can open Claude Code (or another MCP-aware AI assistant) in your Scala project directory. Claude Code **automatically discovers the `.mcp.json` file** and connects to the Metals MCP server — no manual `claude mcp add` needed. It will prompt you to approve the server on first use.
+Once this is running, you can open Claude Code (or another MCP-aware AI assistant) in your Scala project directory.
 
 This gives AI assistants access to Scala language intelligence (go-to-definition, find-references, completions, diagnostics, etc.) without requiring an IDE.
 

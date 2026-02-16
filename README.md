@@ -95,7 +95,7 @@ scala-cli run . -- --verbose /path/to/scala/project
 
 ### Using with Claude Code
 
-Once the standalone client is running, simply open Claude Code in your Scala project directory. Metals writes a `.mcp.json` file at the project root that Claude Code auto-discovers — no manual configuration needed. You'll be prompted to approve the MCP server on first use.
+Once the standalone client is running, isntructions will be printed to the console. Simply follow these instructions in your project directory. You'll be prompted to approve the MCP server on first use.
 
 ### MCP Configuration Files
 

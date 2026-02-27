@@ -144,7 +144,6 @@ class MetalsLight(projectPath: Path, verbose: Boolean, metalsArgs: Seq[String] =
         case Some(p) => p
         case None    =>
           spinner.stop()
-          logger.severe("❌ Failed to launch Metals")
           return 1
 
       val client = new LspClient(process)

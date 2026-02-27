@@ -14,7 +14,7 @@ import java.util.logging.Logger
   *   - Development SBT execution (when in metals repo)
   *   - Local JAR files
   */
-class MetalsLauncher(projectPath: Path, metalsArgs: Seq[String] = Seq.empty):
+class MetalsLauncher(projectPath: Path, metalsArgs: Seq[String] = Seq.empty, currentDirectory: Path = Paths.get(".").toAbsolutePath.normalize()):
   private val logger = Logger.getLogger(classOf[MetalsLauncher].getName)
 
   private var metalsProcess: Option[java.lang.Process] = None
@@ -57,19 +57,18 @@ class MetalsLauncher(projectPath: Path, metalsArgs: Seq[String] = Seq.empty):
     }
 
   private def findSbtDevelopment(): Option[MetalsInstallation] =
-    val currentDir = Paths.get(".").toAbsolutePath.normalize()
-    val buildSbt   = currentDir.resolve("build.sbt")
+    val buildSbt  = currentDirectory.resolve("build.sbt")
+    val metalsDir = currentDirectory.resolve("metals")
 
-    if Files.exists(buildSbt) then
+    if Files.exists(buildSbt) && Files.isDirectory(metalsDir) then
       findExecutable("sbt").map { sbt =>
         logger.info("Using SBT to run Metals from source (development version)")
-        MetalsInstallation.SbtDevelopment(sbt, currentDir)
+        MetalsInstallation.SbtDevelopment(sbt, currentDirectory)
       }
     else None
 
   private def findJarInstallation(): Option[MetalsInstallation] =
-    val currentDir   = Paths.get(".").toAbsolutePath.normalize()
-    val metalsTarget = currentDir.resolve("metals/target")
+    val metalsTarget = currentDirectory.resolve("metals/target")
 
     if Files.exists(metalsTarget) then
       Try:
@@ -132,7 +131,14 @@ class MetalsLauncher(projectPath: Path, metalsArgs: Seq[String] = Seq.empty):
             None
 
       case None =>
-        logger.severe("Could not find Metals installation")
+        logger.severe(
+          """Could not find Metals installation.
+            |
+            |To fix this, install Coursier and ensure 'cs' is on your PATH:
+            |  https://get-coursier.io
+            |
+            |Run with --verbose for detailed diagnostics.""".stripMargin
+        )
         None
 
   private def buildCommand(installation: MetalsInstallation): Seq[String] =

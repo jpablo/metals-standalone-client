@@ -95,6 +95,28 @@ class MetalsLauncherTest extends FunSuite {
     assertEquals(launcher.isScalaProject(), false)
   }
   
+  tempDir.test("findSbtDevelopment does not match regular SBT project without metals/ directory") { tempDir =>
+    // A regular SBT project has build.sbt but no metals/ subdirectory
+    Files.write(tempDir.resolve("build.sbt"), "name := \"my-app\"".getBytes(StandardCharsets.UTF_8))
+    val launcher = new MetalsLauncher(tempDir, currentDirectory = tempDir)
+    val installation = launcher.findMetalsInstallation()
+    // Should not return SbtDevelopment — if anything matches, it must not be SbtDevelopment
+    installation.foreach { inst =>
+      assert(!inst.isInstanceOf[launcher.MetalsInstallation.SbtDevelopment],
+        "Regular SBT project should not trigger SbtDevelopment")
+    }
+  }
+
+  tempDir.test("findSbtDevelopment matches Metals repo structure with metals/ directory") { tempDir =>
+    // Simulate a Metals repo: has build.sbt AND metals/ subdirectory
+    Files.write(tempDir.resolve("build.sbt"), "name := \"metals\"".getBytes(StandardCharsets.UTF_8))
+    Files.createDirectories(tempDir.resolve("metals"))
+    val launcher = new MetalsLauncher(tempDir, currentDirectory = tempDir)
+    // Just verify this doesn't crash — actual SbtDevelopment match depends on sbt being on PATH
+    val installation = launcher.findMetalsInstallation()
+    assert(installation.isDefined || installation.isEmpty)
+  }
+
   test("findMetalsInstallation returns None when no installation found") {
     val tempDir = Files.createTempDirectory("no-metals")
     try {

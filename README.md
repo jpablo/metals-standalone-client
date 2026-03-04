@@ -1,4 +1,7 @@
-# Metals Standalone MCP Client
+> [!NOTE]
+> > As of [Metals v1.6.6 (Osmium)](https://scalameta.org/metals/blog/2026/03/03/osmium/#standalone-mcp-server), Metals now includes a built-in standalone MCP server (`metals-mcp`) that can be installed via Coursier (`cs install metals-mcp`). This makes the metals-standalone-client project unnecessary. Please use the official `metals-mcp` command instead.
+> >
+> > # Metals Standalone MCP Client
 
 A standalone client that launches the Metals language server with MCP (Model Context Protocol) support, enabling AI assistants to interact with Scala projects. Built with scala-cli for fast compilation and easy distribution.
 
